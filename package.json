@@ -1,0 +1,240 @@
+{
+  "name": "et-test-runner",
+  "displayName": "ET Test Runner",
+  "description": "Smart test runner for Nx workspaces with Git-based change detection and AI assistance",
+  "version": "1.1.0",
+  "publisher": "etoro",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Testing"
+  ],
+  "keywords": [
+    "nx",
+    "jest",
+    "testing",
+    "monorepo",
+    "git",
+    "test runner"
+  ],
+  "activationEvents": [
+    "workspaceContains:nx.json"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "et-test-runner.refresh",
+        "title": "Refresh Test View",
+        "icon": "$(refresh)",
+        "category": "ET Test Runner"
+      },
+      {
+        "command": "et-test-runner.runSelected",
+        "title": "Run Selected Tests",
+        "icon": "$(play)",
+        "category": "ET Test Runner"
+      },
+      {
+        "command": "et-test-runner.runAll",
+        "title": "Run All Changed Tests",
+        "icon": "$(run-all)",
+        "category": "ET Test Runner"
+      },
+      {
+        "command": "et-test-runner.runProject",
+        "title": "Run All Project Tests",
+        "icon": "$(folder-active)",
+        "category": "ET Test Runner"
+      },
+      {
+        "command": "et-test-runner.aiAssist",
+        "title": "AI Assist for Test",
+        "icon": "$(sparkle)",
+        "category": "ET Test Runner"
+      },
+      {
+        "command": "et-test-runner.clearCache",
+        "title": "Clear Test Cache",
+        "icon": "$(trash)",
+        "category": "ET Test Runner"
+      },
+      {
+        "command": "et-test-runner.cancelTest",
+        "title": "Cancel Running Test",
+        "icon": "$(stop)",
+        "category": "ET Test Runner"
+      },
+      {
+        "command": "et-test-runner.createSpec",
+        "title": "Create Missing Spec",
+        "icon": "$(add)",
+        "category": "ET Test Runner"
+      },
+      {
+        "command": "et-test-runner.search",
+        "title": "Search Specs",
+        "icon": "$(search)",
+        "category": "ET Test Runner"
+      },
+      {
+        "command": "et-test-runner.toggleLogs",
+        "title": "Toggle Logs Panel",
+        "icon": "$(output)",
+        "category": "ET Test Runner"
+      },
+      {
+        "command": "et-test-runner.quickRunCurrentFile",
+        "title": "Quick Run Current File's Spec",
+        "icon": "$(play-circle)",
+        "category": "ET Test Runner"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "et-test-runner",
+          "title": "ET Test Runner",
+          "icon": "resources/icon-alt.svg"
+        }
+      ]
+    },
+    "views": {
+      "et-test-runner": [
+        {
+          "type": "webview",
+          "id": "et-test-runner.mainView",
+          "name": "Test Runner",
+          "contextualTitle": "ET Test Runner"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "et-test-runner.mainView",
+        "contents": "Loading ET Test Runner...\n\nIf this persists, check that you have an Nx workspace (nx.json) open.\n\n[Refresh](command:et-test-runner.refresh)",
+        "when": "!et-test-runner.hasWorkspace"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "et-test-runner.refresh",
+          "when": "view == et-test-runner.mainView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "et-test-runner.runAll",
+          "when": "view == et-test-runner.mainView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "et-test-runner.cancelTest",
+          "when": "view == et-test-runner.mainView && et-test-runner.isRunning",
+          "group": "navigation@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "ET Test Runner",
+      "properties": {
+        "et-test-runner.baseRef": {
+          "type": "string",
+          "default": "origin/main",
+          "description": "Git base reference for detecting changed files"
+        },
+        "et-test-runner.coverage": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run tests with coverage enabled"
+        },
+        "et-test-runner.verbose": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose logging"
+        },
+        "et-test-runner.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically refresh when files change"
+        },
+        "et-test-runner.skipGitFetch": {
+          "type": "boolean",
+          "default": false,
+          "description": "Skip git fetch when detecting changes"
+        },
+        "et-test-runner.showDetailedMetrics": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show detailed test metrics in tree view"
+        },
+        "et-test-runner.compactMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use compact display mode for specs"
+        },
+        "et-test-runner.logsVisible": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show logs pane by default"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "et-test-runner.refresh",
+        "key": "ctrl+e",
+        "mac": "cmd+e",
+        "when": "focusedView == et-test-runner.mainView || view == et-test-runner.projects"
+      },
+      {
+        "command": "et-test-runner.runSelected",
+        "key": "ctrl+r",
+        "mac": "cmd+r",
+        "when": "focusedView == et-test-runner.mainView || (view == et-test-runner.projects && viewItem =~ /^spec/)"
+      },
+      {
+        "command": "et-test-runner.cancelTest",
+        "key": "ctrl+x",
+        "mac": "cmd+x",
+        "when": "et-test-runner.isRunning"
+      },
+      {
+        "command": "et-test-runner.search",
+        "key": "ctrl+f",
+        "mac": "cmd+f",
+        "when": "focusedView == et-test-runner.mainView"
+      },
+      {
+        "command": "et-test-runner.toggleLogs",
+        "key": "oem_3",
+        "when": "focusedView == et-test-runner.mainView"
+      },
+      {
+        "command": "et-test-runner.quickRunCurrentFile",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -watch -p tsconfig.json",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "dependencies": {
+    "execa": "^7.2.0",
+    "fast-glob": "^3.3.3",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.22.0",
+    "typescript": "^5.3.3"
+  }
+}
