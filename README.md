@@ -22,15 +22,14 @@ Then restart VS Code/Cursor and open your Nx workspace (e.g., `etoro-assets`).
 ### Multi-Pane WebView UI
 - **Projects Pane** - Browse projects with test metrics, coverage, and runner tags (Jest/Karma)
 - **Specs Pane** - Select, search, and run specs with inline failure preview
-- **Output Pane** - Live test streaming with clickable stack traces
-- **Logs Pane** - Timestamped debug/info/error entries (toggleable)
+- **Output Pane** - Live test streaming with clickable stack traces (40% height, resizable)
+- **Logs Pane** - Collapsible pane with timestamped entries (click header to toggle)
 
 ### Header Information
 The header displays comprehensive status information similar to the console app:
 - **Status** - Ready / Running indicator with project count
 - **Project** - Currently selected project name
 - **Cache** - Number of cached test results
-- **Logs Toggle** - Click to show/hide logs (ON/OFF indicator)
 - **Base Branch** - Git base reference for change detection
 - **Current Branch** - Your active git branch
 - **Workspace Path** - Nx workspace location
@@ -38,10 +37,10 @@ The header displays comprehensive status information similar to the console app:
 ### Core Features
 - 🔍 **Git-Based Change Detection** - Detects unstaged, staged, and committed changes
 - 📊 **Smart Spec Resolution** - Maps source files to their test specs
-- ⚡ **Efficient Execution** - Runs multiple specs in a single Nx command
+- ⚡ **Efficient Execution** - Runs specs within a single project (no multi-project runs)
 - 💾 **Metrics Caching** - Stores results, durations, and pass/fail counts
 - 🤖 **AI-Assisted Debugging** - Integrates with Cursor/GitHub Copilot
-- 📈 **Coverage Display** - Shows coverage % from Jest reports
+- 📈 **Coverage Display** - Shows detailed coverage (Stmts/Funcs/Branch %)
 - 🔄 **Auto-Refresh** - Updates on file/git changes
 - 🎯 **Auto-Select First Project** - First project is selected on load
 
@@ -58,42 +57,45 @@ The header displays comprehensive status information similar to the console app:
 - **Performance Tracking** - SLOW and FLAKY badges on specs
 - **Structured Output** - Toggle between raw and parsed test results
 - **Running Overlay** - Blocks interaction during test runs
+- **Resizable Panes** - Drag separators to adjust pane sizes
+- **Help Modal** - Press `?` to see all available shortcuts
 
 ---
 
 ## Keyboard Shortcuts
 
-### Global
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+E` / `Cmd+E` | Refresh workspace |
-| `Ctrl+R` / `Cmd+R` | Run selected specs |
-| `Ctrl+X` / `Cmd+X` | Cancel running test |
-| `Ctrl+Shift+R` | Quick run current file's spec |
-| `` ` `` (backtick) | Toggle logs pane |
-| `c` | Toggle compact mode |
-| `Tab` | Navigate between panes |
+Press `?` at any time to see the help modal with all shortcuts.
 
-### Projects Pane
+### Navigation
 | Shortcut | Action |
 |----------|--------|
-| `j` / `k` or `↑` / `↓` | Navigate projects |
-| `Enter` | Select project |
-| `r` | Run all specs in project |
-| `R` | Run only changed specs |
+| `Tab` | Switch between Projects/Specs panes |
+| `j` / `k` or `↑` / `↓` | Navigate up/down |
+| `Enter` | Select project / Open spec context menu |
 
 ### Specs Pane
 | Shortcut | Action |
 |----------|--------|
-| `j` / `k` or `↑` / `↓` | Navigate specs |
 | `Space` | Toggle spec selection |
-| `Enter` | Show context menu |
-| `r` | Run focused spec |
-| `R` | Run all specs in project |
-| `/` or `Ctrl+F` | Focus search |
+| `Ctrl+R` / `Cmd+R` | Run focused spec |
+| `Ctrl+A` | Select all specs |
+| `Ctrl+L` | Clear selection |
+| `Ctrl+D` | Pin/Unpin spec |
+
+### Search & Filter
+| Shortcut | Action |
+|----------|--------|
+| `/` or `Ctrl+F` | Focus search input |
 | `Escape` | Clear search |
-| `Backspace` | Remove last search character |
-| Any letter/number | Type-to-search |
+| Any letter/number | Type-to-search (while in specs pane) |
+
+### Other
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+X` / `Cmd+X` | Cancel running test |
+| `` ` `` (backtick) | Toggle logs pane |
+| `c` | Toggle compact mode |
+| `?` | Show help modal |
 
 ---
 
@@ -120,8 +122,7 @@ In VS Code settings (`Cmd+,`):
   "et-test-runner.coverage": false,
   "et-test-runner.autoRefresh": true,
   "et-test-runner.skipGitFetch": false,
-  "et-test-runner.compactMode": false,
-  "et-test-runner.logsVisible": true
+  "et-test-runner.compactMode": false
 }
 ```
 
@@ -132,7 +133,6 @@ In VS Code settings (`Cmd+,`):
 | `autoRefresh` | `true` | Auto-refresh on file changes |
 | `skipGitFetch` | `false` | Skip `git fetch` on refresh |
 | `compactMode` | `false` | Use dense UI layout |
-| `logsVisible` | `true` | Show logs pane by default |
 
 ---
 
@@ -147,12 +147,11 @@ Click a project in the left pane (or first one auto-selects). Projects show:
 - Project name with runner tag (JEST/KARMA)
 - Spec count
 - Metrics: `✓12 ✗0 ~2 Σ14` (passed, failed, skipped, total)
-- Coverage percentage
+- Coverage: `Stmts 96% Funcs 90% Branch 95%`
 
 ### 3. Run Tests
-- **Single spec**: Press `r` or right-click → Run
-- **Multiple specs**: `Space` to select, then `Cmd+R`
-- **All project**: Press `R` in specs pane
+- **Single spec**: Press `Ctrl+R` or right-click → Run
+- **Multiple specs**: `Space` to select, then click "Run Selected"
 - **Current file**: `Ctrl+Shift+R` from any `.ts` file
 
 Note: Run is disabled for Karma projects (only Jest supported).
@@ -162,6 +161,15 @@ Note: Run is disabled for Karma projects (only Jest supported).
 2. Context is copied to clipboard
 3. Cursor/Copilot chat opens automatically
 4. Press Cmd+V to paste context
+
+### 5. Resize Panes
+- Drag the vertical separator between Projects and Specs panes
+- Drag the horizontal separator above the Output pane
+- Output pane defaults to 40% height
+
+### 6. Toggle Logs
+- Click on the "▶ LOGS" header to expand/collapse the logs pane
+- Shows log count in parentheses: `▶ LOGS (42)`
 
 ---
 
