@@ -130,7 +130,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
     <!-- Horizontal Resize Handle for Output -->
     <div class="resize-handle-horizontal" id="resize-output"></div>
 
-    <!-- Bottom Section: Output + Logs -->
+    <!-- Bottom Section: Output + Logs (horizontal layout) -->
     <div id="bottom-section">
       <!-- Output Pane -->
       <section id="output-pane" class="pane" tabindex="3">
@@ -148,13 +148,12 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         </div>
       </section>
 
-      <!-- Logs Toggle Header (acts as separator) -->
-      <div id="logs-header" class="logs-toggle-header collapsed">
-        <span class="pane-title">▶ LOGS</span>
-        <span class="log-count" id="log-count">(0)</span>
+      <!-- Logs Toggle Bar (vertical, clickable, also acts as resize handle when logs visible) -->
+      <div id="logs-toggle-bar" class="logs-toggle-bar">
+        <span class="logs-toggle-title">L<br>O<br>G<br>S</span>
       </div>
 
-      <!-- Logs Pane (below output, hidden by default) -->
+      <!-- Logs Pane (appears from right, hidden by default) -->
       <aside id="logs-pane" class="pane collapsed">
         <div class="pane-content" id="logs-list"></div>
       </aside>
@@ -286,16 +285,16 @@ function getStyles(): string {
       height: 100vh;
     }
 
-    /* Bottom Section (Output + Logs) */
+    /* Bottom Section (Output + Logs - horizontal layout) */
     #bottom-section {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       overflow: hidden;
     }
 
     #bottom-section #output-pane {
       flex: 1;
-      min-height: 100px;
+      min-width: 200px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -306,50 +305,69 @@ function getStyles(): string {
       overflow: auto;
     }
 
-    .logs-toggle-header {
+    /* Logs toggle bar - vertical bar, always visible */
+    .logs-toggle-bar {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      padding: 6px 12px;
+      justify-content: flex-start;
+      padding: 8px 4px;
       background: var(--bg-tertiary);
-      border-top: 1px solid var(--border-color);
+      border-left: 1px solid var(--border-color);
       cursor: pointer;
       user-select: none;
-      gap: 8px;
+      width: 22px;
+      min-width: 22px;
     }
 
-    .logs-toggle-header:hover {
+    .logs-toggle-bar:hover {
       background: var(--bg-secondary);
     }
 
-    .logs-toggle-header .pane-title {
-      font-size: 11px;
+    .logs-toggle-bar.logs-visible {
+      cursor: ew-resize;
+      background: var(--accent);
+    }
+
+    .logs-toggle-bar.logs-visible:hover {
+      background: var(--accent-hover);
+    }
+
+    .logs-toggle-title {
+      font-size: 9px;
       font-weight: 600;
       color: var(--fg-secondary);
+      text-align: center;
+      line-height: 1.3;
+      letter-spacing: 1px;
     }
 
-    .logs-toggle-header .log-count {
-      font-size: 10px;
-      color: var(--fg-muted);
+    .logs-toggle-bar.logs-visible .logs-toggle-title {
+      color: var(--bg-primary);
     }
 
+    /* Logs pane - horizontal expansion from right */
     #logs-pane {
       overflow: hidden;
-      transition: max-height 0.2s ease;
+      display: flex;
+      flex-direction: column;
     }
 
     #logs-pane.collapsed {
-      max-height: 0;
+      width: 0;
       display: none;
     }
 
     #logs-pane:not(.collapsed) {
-      max-height: 200px;
-      display: block;
+      width: 300px;
+      min-width: 150px;
+      display: flex;
     }
 
     #logs-pane .pane-content {
-      height: 100%;
+      flex: 1;
       overflow: auto;
+      background: var(--bg-primary);
     }
 
     /* Header */
@@ -474,16 +492,12 @@ function getStyles(): string {
       font-weight: 600;
     }
 
-    /* Main Content - Resizable Panes */
+    /* Main Content - Projects and Specs panes only */
     #main-content {
       display: grid;
-      grid-template-columns: minmax(200px, 30%) 1fr minmax(150px, 200px);
+      grid-template-columns: minmax(200px, 30%) 1fr;
       overflow: hidden;
       min-height: 0;
-    }
-
-    #main-content.logs-hidden {
-      grid-template-columns: minmax(200px, 30%) 1fr;
     }
 
     /* Collapsible pane (logs) */
@@ -767,10 +781,14 @@ function getStyles(): string {
 
     /* Project Items - Condensed */
     .project-item {
-      padding: 4px 8px;
+      padding: 3px 8px 3px 8px;
       cursor: pointer;
       border-left: 2px solid transparent;
-      margin-bottom: 2px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .project-item:last-child {
+      border-bottom: none;
     }
 
     .project-item:hover {
@@ -786,6 +804,11 @@ function getStyles(): string {
       border-left-color: var(--running);
     }
 
+    .project-item.focused {
+      background: var(--bg-tertiary);
+      border-left-color: var(--accent);
+    }
+
     .project-item.disabled {
       opacity: 0.6;
       pointer-events: none;
@@ -793,7 +816,7 @@ function getStyles(): string {
 
     .project-name {
       font-weight: 500;
-      margin-bottom: 2px;
+      margin-bottom: 1px;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -859,9 +882,9 @@ function getStyles(): string {
       color: var(--fg-muted);
       display: flex;
       gap: 8px;
-      margin-top: 2px;
+      margin-top: 1px;
+      padding-left: 16px;
       align-items: center;
-      flex-wrap: wrap;
       flex-wrap: wrap;
       align-items: center;
     }
@@ -881,6 +904,13 @@ function getStyles(): string {
       font-size: 10px;
       color: var(--fg-dimmed);
       margin-left: 8px;
+    }
+
+    .project-coverage {
+      font-size: 10px;
+      color: var(--fg-muted);
+      padding-left: 16px;
+      margin-top: 1px;
     }
 
     .metric-duration {
@@ -1025,9 +1055,9 @@ function getStyles(): string {
       flex: 1;
       overflow: hidden;
       display: flex;
-      flex-direction: row;
-      align-items: center;
-      gap: 8px;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1px;
       min-width: 0;
     }
 
@@ -1050,12 +1080,11 @@ function getStyles(): string {
 
     .spec-path {
       font-size: 9px;
-      color: #555; /* Light grey, non-prominent */
+      color: #888; /* Brighter grey, readable but not prominent */
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      flex-shrink: 1;
-      min-width: 0;
+      line-height: 1.2;
     }
 
     .spec-details {
@@ -1733,7 +1762,6 @@ function getScript(): string {
         progressFill: document.getElementById('progress-fill'),
         progressText: document.getElementById('progress-text'),
         runningIndicator: document.getElementById('running-indicator'),
-        logCount: document.getElementById('log-count'),
         baseRef: document.getElementById('base-ref'),
         workspacePath: document.getElementById('workspace-path'),
         selectionInfo: document.getElementById('selection-info'),
@@ -2026,13 +2054,20 @@ function getScript(): string {
               <span class="metric-skip">~\${project.metrics.skipped}</span>
               <span class="metric-total">Σ\${total}</span>
               <span class="metric-duration">\${duration}s</span>
-              <span class="coverage-text">\${coverageHtml}</span>
             \`;
           } else {
             metricsHtml = '<span class="no-run">not run yet</span>';
             if (!isJest) {
               metricsHtml += ' <span class="no-run">(Karma)</span>';
             }
+          }
+
+          // Coverage line (separate from metrics)
+          let coverageLineHtml = '';
+          if (project.metrics?.coverage) {
+            const cov = project.metrics.coverage;
+            const fmtPct = v => v !== undefined ? Math.round(v) + '%' : '--';
+            coverageLineHtml = \`<div class="project-coverage">Stmts \${fmtPct(cov.statements)}  Funcs \${fmtPct(cov.functions)}  Branch \${fmtPct(cov.branches)}</div>\`;
           }
 
           return \`
@@ -2045,6 +2080,7 @@ function getScript(): string {
                 \${specCountHtml}
               </div>
               <div class="project-metrics">\${metricsHtml}</div>
+              \${coverageLineHtml}
             </div>
           \`;
         }).join('');
@@ -2446,9 +2482,6 @@ function getScript(): string {
 
         elements.logsList.innerHTML = html;
         elements.logsList.scrollTop = elements.logsList.scrollHeight;
-        
-        // Update log count in pane header
-        elements.logCount.textContent = \`(\${state.logs.length})\`;
       }
 
       function updateRunningUI() {
@@ -2568,9 +2601,11 @@ function getScript(): string {
 
       // Event Handlers
       
-      // Click on pane to focus it
+      // Click on pane to focus it (always focus when clicking anywhere in the pane)
       Object.entries(paneElements).forEach(([name, el]) => {
-        el.addEventListener('click', () => {
+        if (!el) return;
+        el.addEventListener('click', (e) => {
+          // Focus the pane on any click within it
           if (currentPane !== name) {
             focusPane(name);
           }
@@ -2615,15 +2650,57 @@ function getScript(): string {
         elements.historyToggle.textContent = isHidden ? '▼ Show History' : '▲ Hide History';
       });
 
-      // Logs toggle (click on header bar to collapse/expand)
-      const logsHeader = document.getElementById('logs-header');
+      // Logs toggle bar (click to toggle, drag to resize when visible)
+      const logsToggleBar = document.getElementById('logs-toggle-bar');
       const logsPane = document.getElementById('logs-pane');
+      let logsResizing = false;
+      let logsDragged = false;
+      let logsStartX = 0;
+      let logsStartWidth = 300;
       
-      logsHeader.addEventListener('click', () => {
+      function toggleLogs() {
         const isCollapsed = logsPane.classList.toggle('collapsed');
-        logsHeader.classList.toggle('collapsed', isCollapsed);
-        const title = logsHeader.querySelector('.pane-title');
-        title.textContent = isCollapsed ? '▶ LOGS' : '▼ LOGS';
+        logsToggleBar.classList.toggle('logs-visible', !isCollapsed);
+      }
+      
+      logsToggleBar.addEventListener('mousedown', (e) => {
+        const isVisible = !logsPane.classList.contains('collapsed');
+        if (isVisible) {
+          // Start resizing
+          logsResizing = true;
+          logsDragged = false;
+          logsStartX = e.clientX;
+          logsStartWidth = logsPane.offsetWidth;
+          document.body.style.cursor = 'ew-resize';
+          e.preventDefault();
+        }
+      });
+      
+      logsToggleBar.addEventListener('click', (e) => {
+        // Only toggle if we didn't drag (resize)
+        if (!logsDragged) {
+          toggleLogs();
+        }
+        logsDragged = false;
+      });
+      
+      document.addEventListener('mousemove', (e) => {
+        if (logsResizing) {
+          const delta = logsStartX - e.clientX;
+          // Only consider it a drag if moved more than 5px
+          if (Math.abs(delta) > 5) {
+            logsDragged = true;
+          }
+          const newWidth = Math.max(150, Math.min(600, logsStartWidth + delta));
+          logsPane.style.width = newWidth + 'px';
+        }
+      });
+      
+      document.addEventListener('mouseup', () => {
+        if (logsResizing) {
+          logsResizing = false;
+          document.body.style.cursor = '';
+        }
       });
       
       function nextPane() {
@@ -2648,7 +2725,14 @@ function getScript(): string {
 
       // Keyboard Navigation
       document.addEventListener('keydown', e => {
-        // Skip if typing in search input
+        // Help modal always works, regardless of focus
+        if (e.key === '?') {
+          toggleHelpModal();
+          e.preventDefault();
+          return;
+        }
+        
+        // Skip most keys if typing in search input
         if (document.activeElement === elements.searchInput) {
           if (e.key === 'Escape') {
             elements.searchInput.value = '';
@@ -2670,7 +2754,8 @@ function getScript(): string {
         
         // Global shortcuts (with modifiers)
         if (e.key === '\`') {
-          send('toggleLogs');
+          // Toggle logs pane
+          toggleLogs();
           e.preventDefault();
           return;
         }
@@ -2680,12 +2765,6 @@ function getScript(): string {
             send('toggleCompactMode');
             return;
           }
-        }
-        
-        if (e.key === '?') {
-          toggleHelpModal();
-          e.preventDefault();
-          return;
         }
         
         if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
@@ -2753,16 +2832,40 @@ function getScript(): string {
         if (currentPane === 'projects') {
           if (e.key === 'j' || e.key === 'ArrowDown') {
             focusedProjectIndex = Math.min(focusedProjectIndex + 1, state.projects.length - 1);
-            highlightFocusedProject();
+            // Select the project and update specs pane
+            const focused = getFocusedProject();
+            if (focused && focused.name !== state.selectedProject) {
+              state.selectedProject = focused.name;
+              send('clearSelection');
+              send('selectProject', { projectName: focused.name });
+              renderProjects();
+              renderSpecs();
+              focusedSpecIndex = 0;
+            } else {
+              highlightFocusedProject();
+            }
             e.preventDefault();
           } else if (e.key === 'k' || e.key === 'ArrowUp') {
             focusedProjectIndex = Math.max(focusedProjectIndex - 1, 0);
-            highlightFocusedProject();
+            // Select the project and update specs pane
+            const focused = getFocusedProject();
+            if (focused && focused.name !== state.selectedProject) {
+              state.selectedProject = focused.name;
+              send('clearSelection');
+              send('selectProject', { projectName: focused.name });
+              renderProjects();
+              renderSpecs();
+              focusedSpecIndex = 0;
+            } else {
+              highlightFocusedProject();
+            }
             e.preventDefault();
           } else if (e.key === 'Enter' || e.key === ' ') {
+            // Already selected via navigation, but handle explicit selection too
             const focused = getFocusedProject();
             if (focused) {
               state.selectedProject = focused.name;
+              send('clearSelection');
               send('selectProject', { projectName: focused.name });
               renderProjects();
               renderSpecs();

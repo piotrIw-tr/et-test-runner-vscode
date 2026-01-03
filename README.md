@@ -20,10 +20,10 @@ Then restart VS Code/Cursor and open your Nx workspace (e.g., `etoro-assets`).
 ## Features
 
 ### Multi-Pane WebView UI
-- **Projects Pane** - Browse projects with test metrics, coverage, and runner tags (Jest/Karma)
-- **Specs Pane** - Select, search, and run specs with inline failure preview
+- **Projects Pane** - Browse projects with test metrics, coverage (Stmts/Funcs/Branch), and runner tags (Jest/Karma). Subtle separators between items.
+- **Specs Pane** - Select, search, and run specs with inline failure preview. Paths displayed below filenames.
 - **Output Pane** - Live test streaming with clickable stack traces (40% height, resizable)
-- **Logs Pane** - Collapsible pane with timestamped entries (click header to toggle)
+- **Logs Pane** - Vertical toggle bar on the right side of output; click to expand/collapse, drag to resize width
 
 ### Header Information
 The header displays comprehensive status information similar to the console app:
@@ -70,8 +70,9 @@ Press `?` at any time to see the help modal with all shortcuts.
 | Shortcut | Action |
 |----------|--------|
 | `Tab` | Switch between Projects/Specs panes |
-| `j` / `k` or `↑` / `↓` | Navigate up/down |
-| `Enter` | Select project / Open spec context menu |
+| `j` / `k` or `↑` / `↓` | Navigate up/down (projects pane also selects) |
+| `Enter` | Open spec context menu |
+| Click on pane | Make pane active |
 
 ### Specs Pane
 | Shortcut | Action |
@@ -168,8 +169,9 @@ Note: Run is disabled for Karma projects (only Jest supported).
 - Output pane defaults to 40% height
 
 ### 6. Toggle Logs
-- Click on the "▶ LOGS" header to expand/collapse the logs pane
-- Shows log count in parentheses: `▶ LOGS (42)`
+- Click on the vertical "LOGS" bar (right side of output pane) to expand/collapse
+- When expanded, drag the bar to resize logs width (150px - 600px)
+- Press backtick (`` ` ``) to toggle from keyboard
 
 ---
 
