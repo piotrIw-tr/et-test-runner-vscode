@@ -125,38 +125,40 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         </div>
       </section>
 
-      <!-- Logs Pane (collapsible) -->
-      <aside id="logs-pane" class="pane collapsible-pane collapsed" tabindex="3">
-        <div class="pane-header clickable-header" id="logs-header">
-          <span class="pane-title">▶ LOGS</span>
-          <span class="log-count" id="log-count">(0)</span>
-        </div>
-        <div class="pane-content collapsible-content" id="logs-list"></div>
-      </aside>
     </main>
 
     <!-- Horizontal Resize Handle for Output -->
     <div class="resize-handle-horizontal" id="resize-output"></div>
 
-    <!-- Output Pane -->
-    <section id="output-pane" class="pane" tabindex="4">
-      <div class="pane-header">
-        <span class="pane-title">OUTPUT</span>
-        <div class="pane-actions">
-          <button id="output-raw-btn" class="btn-toggle active" tabindex="-1">Raw</button>
-          <button id="output-structured-btn" class="btn-toggle" tabindex="-1">Structured</button>
-          <button id="cancel-btn" class="btn-danger" tabindex="-1" style="display: none;">Cancel</button>
+    <!-- Bottom Section: Output + Logs -->
+    <div id="bottom-section">
+      <!-- Output Pane -->
+      <section id="output-pane" class="pane" tabindex="3">
+        <div class="pane-header">
+          <span class="pane-title">OUTPUT</span>
+          <div class="pane-actions">
+            <button id="output-raw-btn" class="btn-toggle active" tabindex="-1">Raw</button>
+            <button id="output-structured-btn" class="btn-toggle" tabindex="-1">Structured</button>
+            <button id="cancel-btn" class="btn-danger" tabindex="-1" style="display: none;">Cancel</button>
+          </div>
         </div>
+        <div class="pane-content" id="output-content">
+          <pre id="output-raw"></pre>
+          <div id="output-structured" style="display: none;"></div>
+        </div>
+      </section>
+
+      <!-- Logs Toggle Header (acts as separator) -->
+      <div id="logs-header" class="logs-toggle-header collapsed">
+        <span class="pane-title">▶ LOGS</span>
+        <span class="log-count" id="log-count">(0)</span>
       </div>
-      <div class="pane-commands">
-        <span class="cmd"><kbd>⌘X</kbd> cancel</span>
-        <span class="cmd"><kbd>Tab</kbd> →projects</span>
-      </div>
-      <div class="pane-content" id="output-content">
-        <pre id="output-raw"></pre>
-        <div id="output-structured" style="display: none;"></div>
-      </div>
-    </section>
+
+      <!-- Logs Pane (below output, hidden by default) -->
+      <aside id="logs-pane" class="pane collapsed">
+        <div class="pane-content" id="logs-list"></div>
+      </aside>
+    </div>
 
     <!-- Footer Bar -->
     <footer id="footer-bar">
@@ -280,8 +282,74 @@ function getStyles(): string {
 
     #app {
       display: grid;
-      grid-template-rows: auto 60% auto 40% auto;
+      grid-template-rows: auto 1fr auto 40% auto;
       height: 100vh;
+    }
+
+    /* Bottom Section (Output + Logs) */
+    #bottom-section {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #bottom-section #output-pane {
+      flex: 1;
+      min-height: 100px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #bottom-section #output-pane .pane-content {
+      flex: 1;
+      overflow: auto;
+    }
+
+    .logs-toggle-header {
+      display: flex;
+      align-items: center;
+      padding: 6px 12px;
+      background: var(--bg-tertiary);
+      border-top: 1px solid var(--border-color);
+      cursor: pointer;
+      user-select: none;
+      gap: 8px;
+    }
+
+    .logs-toggle-header:hover {
+      background: var(--bg-secondary);
+    }
+
+    .logs-toggle-header .pane-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--fg-secondary);
+    }
+
+    .logs-toggle-header .log-count {
+      font-size: 10px;
+      color: var(--fg-muted);
+    }
+
+    #logs-pane {
+      overflow: hidden;
+      transition: max-height 0.2s ease;
+    }
+
+    #logs-pane.collapsed {
+      max-height: 0;
+      display: none;
+    }
+
+    #logs-pane:not(.collapsed) {
+      max-height: 200px;
+      display: block;
+    }
+
+    #logs-pane .pane-content {
+      height: 100%;
+      overflow: auto;
     }
 
     /* Header */
@@ -504,6 +572,10 @@ function getStyles(): string {
       border-bottom-color: var(--accent);
     }
 
+    .pane:focus {
+      outline: none;
+    }
+
     .pane-header {
       display: flex;
       align-items: center;
@@ -642,8 +714,17 @@ function getStyles(): string {
       font-size: 10px;
     }
 
-    .btn-small:hover {
+    .btn-small:hover:not(:disabled) {
       background: var(--bg-tertiary);
+    }
+
+    .btn-small:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-small.loading {
+      color: var(--running);
     }
 
     .btn-icon {
@@ -2237,7 +2318,7 @@ function getScript(): string {
             <div class="missing-item" data-missing="\${missing.expectedSpecPath}">
               <span class="missing-icon">⚠</span>
               <span class="spec-name">\${missing.expectedSpecPath.split('/').pop()}</span>
-              <button class="btn-small">Create</button>
+              <button class="btn-small create-spec-btn">Create</button>
             </div>
           \`).join('');
         } else {
@@ -2305,14 +2386,21 @@ function getScript(): string {
           });
         });
 
-        elements.missingSpecsList.querySelectorAll('.missing-item button').forEach(btn => {
+        elements.missingSpecsList.querySelectorAll('.missing-item .create-spec-btn').forEach(btn => {
           btn.addEventListener('click', e => {
             e.stopPropagation();
+            if (btn.disabled) return;
+            
             const item = btn.closest('.missing-item');
             const missingSpec = state.missingSpecs.find(m => 
               m.expectedSpecPath === item.dataset.missing
             );
             if (missingSpec) {
+              // Show loading state
+              btn.disabled = true;
+              btn.textContent = 'Creating...';
+              btn.classList.add('loading');
+              
               send('createSpec', {
                 missingSpecPath: missingSpec.expectedSpecPath,
                 sourcePath: missingSpec.sourcePath
@@ -2527,11 +2615,14 @@ function getScript(): string {
         elements.historyToggle.textContent = isHidden ? '▼ Show History' : '▲ Hide History';
       });
 
-      // Logs toggle (click on pane header to collapse/expand)
-      document.getElementById('logs-header').addEventListener('click', () => {
-        const logsPane = document.getElementById('logs-pane');
+      // Logs toggle (click on header bar to collapse/expand)
+      const logsHeader = document.getElementById('logs-header');
+      const logsPane = document.getElementById('logs-pane');
+      
+      logsHeader.addEventListener('click', () => {
         const isCollapsed = logsPane.classList.toggle('collapsed');
-        const title = logsPane.querySelector('.pane-title');
+        logsHeader.classList.toggle('collapsed', isCollapsed);
+        const title = logsHeader.querySelector('.pane-title');
         title.textContent = isCollapsed ? '▶ LOGS' : '▼ LOGS';
       });
       

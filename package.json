@@ -125,14 +125,9 @@
           "group": "navigation@1"
         },
         {
-          "command": "et-test-runner.runAll",
-          "when": "view == et-test-runner.mainView",
-          "group": "navigation@2"
-        },
-        {
           "command": "et-test-runner.cancelTest",
           "when": "view == et-test-runner.mainView && et-test-runner.isRunning",
-          "group": "navigation@3"
+          "group": "navigation@2"
         }
       ]
     },
