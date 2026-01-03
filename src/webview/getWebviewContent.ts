@@ -66,8 +66,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         <div class="pane-commands">
           <span class="cmd"><kbd>j/k</kbd> nav</span>
           <span class="cmd"><kbd>Enter</kbd> select</span>
-          <span class="cmd"><kbd>⌘R</kbd> run all</span>
-          <span class="cmd"><kbd>⌘⇧R</kbd> run changed</span>
           <span class="cmd"><kbd>Tab</kbd> →specs</span>
         </div>
         <div class="pane-content" id="projects-list"></div>
@@ -103,8 +101,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
           <span class="cmd"><kbd>Space</kbd> toggle</span>
           <span class="cmd"><kbd>Enter</kbd> menu</span>
           <span class="cmd"><kbd>⌘R</kbd> run spec</span>
-          <span class="cmd"><kbd>⌘⇧R</kbd> run all</span>
-          <span class="cmd"><kbd>Tab</kbd> →output</span>
+          <span class="cmd"><kbd>Tab</kbd> →projects</span>
         </div>
         <div class="search-container">
           <input type="text" id="search-input" placeholder="Type to search... (or / or Ctrl+F)" tabindex="-1" />
@@ -184,6 +181,45 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
       <div class="context-menu-separator"></div>
       <div class="context-menu-item" data-action="open" tabindex="0">📄 Open File</div>
       <div class="context-menu-item" data-action="pin" tabindex="0">★ Pin/Unpin</div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="modal-title">Keyboard Shortcuts</span>
+          <button class="modal-close" id="help-close">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="help-section">
+            <h4>Navigation</h4>
+            <div class="help-row"><kbd>Tab</kbd><span>Switch between Projects/Specs panes</span></div>
+            <div class="help-row"><kbd>j</kbd> / <kbd>↓</kbd><span>Move down</span></div>
+            <div class="help-row"><kbd>k</kbd> / <kbd>↑</kbd><span>Move up</span></div>
+            <div class="help-row"><kbd>Enter</kbd><span>Select project / Open spec menu</span></div>
+          </div>
+          <div class="help-section">
+            <h4>Specs</h4>
+            <div class="help-row"><kbd>Space</kbd><span>Toggle spec selection</span></div>
+            <div class="help-row"><kbd>Ctrl+R</kbd><span>Run focused spec</span></div>
+            <div class="help-row"><kbd>Ctrl+A</kbd><span>Select all specs</span></div>
+            <div class="help-row"><kbd>Ctrl+L</kbd><span>Clear selection</span></div>
+            <div class="help-row"><kbd>Ctrl+D</kbd><span>Pin/Unpin spec</span></div>
+          </div>
+          <div class="help-section">
+            <h4>Search & Filter</h4>
+            <div class="help-row"><kbd>/</kbd> or <kbd>Ctrl+F</kbd><span>Focus search</span></div>
+            <div class="help-row"><kbd>Esc</kbd><span>Clear search</span></div>
+          </div>
+          <div class="help-section">
+            <h4>Other</h4>
+            <div class="help-row"><kbd>Ctrl+X</kbd><span>Cancel running tests</span></div>
+            <div class="help-row"><kbd>\`</kbd><span>Toggle logs pane</span></div>
+            <div class="help-row"><kbd>c</kbd><span>Toggle compact mode</span></div>
+            <div class="help-row"><kbd>?</kbd><span>Show this help</span></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1315,6 +1351,102 @@ function getStyles(): string {
       height: 1px;
       background: var(--border-color);
       margin: 4px 0;
+    }
+
+    /* Help Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .modal-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      width: 450px;
+      max-height: 80vh;
+      overflow: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-tertiary);
+    }
+
+    .modal-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--fg-primary);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 18px;
+      color: var(--fg-muted);
+      cursor: pointer;
+      padding: 0 4px;
+    }
+
+    .modal-close:hover {
+      color: var(--fg-primary);
+    }
+
+    .modal-body {
+      padding: 16px;
+    }
+
+    .help-section {
+      margin-bottom: 16px;
+    }
+
+    .help-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .help-section h4 {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin: 0 0 8px 0;
+      letter-spacing: 0.5px;
+    }
+
+    .help-row {
+      display: flex;
+      align-items: center;
+      padding: 4px 0;
+      font-size: 12px;
+    }
+
+    .help-row kbd {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 3px;
+      padding: 2px 6px;
+      font-family: var(--vscode-editor-font-family);
+      font-size: 10px;
+      min-width: 18px;
+      text-align: center;
+      margin-right: 8px;
+    }
+
+    .help-row span {
+      color: var(--fg-secondary);
     }
 
     /* Running Overlay */
@@ -2459,6 +2591,12 @@ function getScript(): string {
           }
         }
         
+        if (e.key === '?') {
+          toggleHelpModal();
+          e.preventDefault();
+          return;
+        }
+        
         if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
           elements.searchInput.focus();
           e.preventDefault();
@@ -2676,6 +2814,38 @@ function getScript(): string {
         contextMenu.style.display = 'none';
         contextMenuSpec = null;
       }
+
+      // Help Modal
+      const helpModal = document.getElementById('help-modal');
+      
+      function toggleHelpModal() {
+        if (helpModal.style.display === 'none') {
+          helpModal.style.display = 'flex';
+        } else {
+          helpModal.style.display = 'none';
+        }
+      }
+      
+      function hideHelpModal() {
+        helpModal.style.display = 'none';
+      }
+      
+      // Close help modal on click outside or close button
+      document.getElementById('help-close').addEventListener('click', hideHelpModal);
+      helpModal.addEventListener('click', e => {
+        if (e.target === helpModal) {
+          hideHelpModal();
+        }
+      });
+      
+      // Close help modal on Escape
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && helpModal.style.display === 'flex') {
+          hideHelpModal();
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, true);
 
       // Close context menu on click outside
       document.addEventListener('click', e => {
