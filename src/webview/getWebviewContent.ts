@@ -51,7 +51,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
     </header>
 
     <!-- Main Content Area -->
-    <main id="main-content">
+    <main id="main-content" class="logs-hidden">
       <!-- Projects Pane -->
       <aside id="projects-pane" class="pane" tabindex="1">
         <div class="resize-handle" id="resize-projects" data-pane="projects"></div>
@@ -143,6 +143,9 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         <div class="pane-content" id="logs-list"></div>
       </aside>
     </main>
+
+    <!-- Horizontal Resize Handle for Output -->
+    <div class="resize-handle-horizontal" id="resize-output"></div>
 
     <!-- Output Pane -->
     <section id="output-pane" class="pane" tabindex="4">
@@ -247,7 +250,7 @@ function getStyles(): string {
 
     #app {
       display: grid;
-      grid-template-rows: auto 1fr auto auto;
+      grid-template-rows: auto 1fr auto minmax(150px, 40%) auto;
       height: 100vh;
     }
 
@@ -389,7 +392,7 @@ function getStyles(): string {
       display: none;
     }
 
-    /* Resize handles */
+    /* Resize handles - vertical (between columns) */
     .resize-handle {
       width: 4px;
       cursor: col-resize;
@@ -403,6 +406,19 @@ function getStyles(): string {
 
     .resize-handle:hover,
     .resize-handle.dragging {
+      background: var(--accent);
+    }
+
+    /* Resize handle - horizontal (between rows) */
+    .resize-handle-horizontal {
+      height: 4px;
+      cursor: row-resize;
+      background: transparent;
+      transition: background 0.15s;
+    }
+
+    .resize-handle-horizontal:hover,
+    .resize-handle-horizontal.dragging {
       background: var(--accent);
     }
 
@@ -706,8 +722,10 @@ function getStyles(): string {
       font-size: 10px;
       color: var(--fg-muted);
       display: flex;
-      gap: 6px;
+      gap: 8px;
       margin-top: 2px;
+      align-items: center;
+      flex-wrap: wrap;
       flex-wrap: wrap;
       align-items: center;
     }
@@ -723,17 +741,15 @@ function getStyles(): string {
     .metric-skip { color: var(--skip); }
     .metric-total { color: var(--fg-secondary); font-weight: 500; }
 
-    .coverage-inline {
+    .coverage-text {
       font-size: 10px;
       color: var(--fg-dimmed);
-      margin-left: 4px;
-      display: flex;
-      gap: 6px;
+      margin-left: 8px;
     }
 
-    .coverage-detail {
-      color: var(--fg-muted);
-      font-size: 10px;
+    .metric-duration {
+      color: var(--fg-dimmed);
+      margin-left: 4px;
     }
 
     .coverage-badge {
@@ -795,11 +811,11 @@ function getStyles(): string {
     .spec-item {
       padding: 3px 8px;
       display: flex;
-      align-items: flex-start;
+      align-items: center; /* Center all items vertically */
       gap: 6px;
       cursor: pointer;
       border-left: 2px solid transparent;
-      min-height: 18px;
+      min-height: 24px;
     }
 
     .spec-item:hover {
@@ -818,6 +834,14 @@ function getStyles(): string {
     .spec-item.disabled {
       opacity: 0.6;
       pointer-events: none;
+    }
+
+    .spec-item.karma-spec {
+      opacity: 0.8;
+    }
+
+    .spec-item.karma-spec .spec-checkbox {
+      visibility: hidden;
     }
 
     .specs-section-header {
@@ -865,14 +889,17 @@ function getStyles(): string {
       flex: 1;
       overflow: hidden;
       display: flex;
-      flex-direction: column;
-      gap: 2px;
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
     }
 
     .spec-name {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .spec-name.fail { color: var(--fail); }
@@ -886,11 +913,13 @@ function getStyles(): string {
     }
 
     .spec-path {
-      font-size: 10px;
-      color: var(--fg-dimmed);
+      font-size: 9px;
+      color: #555; /* Light grey, non-prominent */
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      flex-shrink: 1;
+      min-width: 0;
     }
 
     .spec-details {
@@ -1446,7 +1475,7 @@ function getScript(): string {
         logs: [],
         runHistory: [],
         searchQuery: '',
-        logsVisible: true,
+        logsVisible: false, // Hidden by default
         compactMode: false,
         focusedPane: 'projects',
         config: { baseRef: '', branch: '', workspacePath: '' }
@@ -1565,7 +1594,7 @@ function getScript(): string {
         state.selectedProject = uiState.selectedProjectName || null;
         state.selectedSpecs = new Set(Array.isArray(uiState.selectedSpecPaths) ? uiState.selectedSpecPaths : []);
         state.pinnedSpecs = new Set(Array.isArray(uiState.pinnedSpecPaths) ? uiState.pinnedSpecPaths : []);
-        state.logsVisible = uiState.logsVisible !== false;
+        state.logsVisible = uiState.logsVisible === true; // Default to hidden
         state.compactMode = uiState.compactMode || false;
         
         state.runningState = payload.runningState || { isRunning: false };
@@ -1743,11 +1772,9 @@ function getScript(): string {
             ? \`<span class="spec-count">\${specCount} specs</span> <span class="missing-count">+\${missingCount} missing</span>\`
             : \`<span class="spec-count">\${specCount} specs</span>\`;
           
-          // Line 2: Metrics (console app style)
+          // Line 2: Metrics (console app style: ✓10 ✗0 ~Σ10  Stmts 96% Funcs 90% Branch 95%)
           let metricsHtml = '';
-          if (!isJest) {
-            metricsHtml = '<span class="no-run">Karma (run disabled)</span>';
-          } else if (project.metrics) {
+          if (project.metrics) {
             const total = project.metrics.passed + project.metrics.failed + project.metrics.skipped;
             const duration = (project.metrics.durationMs / 1000).toFixed(1);
             
@@ -1756,27 +1783,24 @@ function getScript(): string {
             if (project.metrics.coverage) {
               const cov = project.metrics.coverage;
               const fmtPct = v => v !== undefined ? Math.round(v) + '%' : '--';
-              coverageHtml = \`
-                <span class="coverage-detail">Stmts \${fmtPct(cov.statements)}</span>
-                <span class="coverage-detail">Funcs \${fmtPct(cov.functions)}</span>
-                <span class="coverage-detail">Branch \${fmtPct(cov.branches)}</span>
-              \`;
+              coverageHtml = \`Stmts \${fmtPct(cov.statements)}  Funcs \${fmtPct(cov.functions)}  Branch \${fmtPct(cov.branches)}\`;
             } else {
-              coverageHtml = '<span style="opacity:0.5">no coverage</span>';
+              coverageHtml = 'no coverage';
             }
             
             metricsHtml = \`
-              <span class="metric-group">
-                <span class="metric-pass">✓\${project.metrics.passed}</span>
-                <span class="metric-fail">✗\${project.metrics.failed}</span>
-                <span class="metric-skip">~\${project.metrics.skipped}</span>
-                <span class="metric-total">Σ\${total}</span>
-              </span>
-              <span class="coverage-inline">\${coverageHtml}</span>
-              <span style="opacity:0.6">\${duration}s</span>
+              <span class="metric-pass">✓\${project.metrics.passed}</span>
+              <span class="metric-fail">✗\${project.metrics.failed}</span>
+              <span class="metric-skip">~\${project.metrics.skipped}</span>
+              <span class="metric-total">Σ\${total}</span>
+              <span class="metric-duration">\${duration}s</span>
+              <span class="coverage-text">\${coverageHtml}</span>
             \`;
           } else {
-            metricsHtml = '<span style="opacity:0.5">not run yet</span>';
+            metricsHtml = '<span class="no-run">not run yet</span>';
+            if (!isJest) {
+              metricsHtml += ' <span class="no-run">(Karma)</span>';
+            }
           }
 
           return \`
@@ -2018,16 +2042,23 @@ function getScript(): string {
             ? highlightSearchText(spec.fileName, state.searchQuery)
             : spec.fileName;
           
-          // Get relative path to lib (without filename)
+          // Get relative path to lib (without filename), omitting common prefixes like 'src/lib'
           const libPath = spec.libRelPath || spec.relPath;
           const pathParts = libPath.split('/');
           pathParts.pop(); // Remove filename
-          const relDir = pathParts.join('/');
+          let relDir = pathParts.join('/');
+          // Remove common prefixes that add no value
+          relDir = relDir.replace(/^src\\/lib\\//, '').replace(/^src\\//, '').replace(/^lib\\//, '');
+
+          // Check if current project is Jest (for enabling/disabling actions)
+          const isJestProject = isCurrentProjectJest();
+          const checkboxStyle = isJestProject ? '' : 'style="visibility:hidden"';
+          const runBtnStyle = isJestProject ? '' : 'style="display:none"';
 
           return \`
-            <div class="spec-item \${isSelected ? 'selected' : ''} \${isPinned ? 'pinned' : ''} \${isRunning ? 'running' : ''}"
+            <div class="spec-item \${isSelected ? 'selected' : ''} \${isPinned ? 'pinned' : ''} \${isRunning ? 'running' : ''} \${!isJestProject ? 'karma-spec' : ''}"
                  data-spec="\${spec.absPath}">
-              <input type="checkbox" class="spec-checkbox" tabindex="-1" \${isSelected ? 'checked' : ''} />
+              <input type="checkbox" class="spec-checkbox" tabindex="-1" \${isSelected ? 'checked' : ''} \${checkboxStyle} />
               <span class="spec-status \${spec.testStatus}">\${statusIcon}</span>
               <div class="spec-name-wrapper">
                 <span class="spec-name \${spec.testStatus}">\${isPinned ? '★ ' : ''}\${displayName}</span>
@@ -2036,7 +2067,7 @@ function getScript(): string {
               <span class="spec-details">\${metricsHtml}\${changeBadge}</span>
               <div class="spec-actions">
                 <button class="spec-action-btn pin-btn" tabindex="-1" title="\${isPinned ? 'Unpin' : 'Pin'} (Ctrl+D)">\${isPinned ? '★' : '☆'}</button>
-                <button class="spec-action-btn run-btn" tabindex="-1" title="Run">▶</button>
+                <button class="spec-action-btn run-btn" tabindex="-1" title="Run" \${runBtnStyle}>▶</button>
                 <button class="spec-action-btn ai-btn" tabindex="-1" title="AI Assist">✨</button>
               </div>
             </div>
@@ -2068,7 +2099,10 @@ function getScript(): string {
           
           el.querySelector('.spec-checkbox').addEventListener('click', e => {
             e.stopPropagation();
-            send('toggleSpec', { specPath });
+            // Only allow selection for Jest projects
+            if (isCurrentProjectJest()) {
+              send('toggleSpec', { specPath });
+            }
           });
 
           el.querySelector('.run-btn').addEventListener('click', e => {
@@ -2099,7 +2133,10 @@ function getScript(): string {
             focusedSpecIndex = idx;
             highlightFocusedSpec();
             focusPane('specs');
-            send('toggleSpec', { specPath });
+            // Only allow selection for Jest projects
+            if (isCurrentProjectJest()) {
+              send('toggleSpec', { specPath });
+            }
           });
 
           el.addEventListener('dblclick', () => {
@@ -2231,11 +2268,12 @@ function getScript(): string {
 
       function updateFooter() {
         const selectedCount = state.selectedSpecs.size;
+        const isJest = isCurrentProjectJest();
         
         elements.selectionInfo.textContent = \`Selected: \${selectedCount}\`;
-        elements.runSelectedBtn.disabled = selectedCount === 0 || state.runningState.isRunning;
+        elements.runSelectedBtn.disabled = selectedCount === 0 || state.runningState.isRunning || !isJest;
         
-        if (!isCurrentProjectJest()) {
+        if (!isJest) {
           elements.runSelectedBtn.title = 'Running tests not supported for Karma projects';
         } else {
           elements.runSelectedBtn.title = '';
@@ -2504,9 +2542,12 @@ function getScript(): string {
             // Toggle selection on focused spec (only for jest projects)
             e.preventDefault(); // Prevent page scroll FIRST
             e.stopPropagation();
-            const focused = getFocusedSpec();
-            if (focused) {
-              send('toggleSpec', { specPath: focused.absPath });
+            // Only allow selection for Jest projects
+            if (isCurrentProjectJest()) {
+              const focused = getFocusedSpec();
+              if (focused) {
+                send('toggleSpec', { specPath: focused.absPath });
+              }
             }
           } else if (e.key === 'Enter') {
             // Show context menu for focused spec
@@ -2516,15 +2557,17 @@ function getScript(): string {
             }
             e.preventDefault();
           } else if (e.key === 'r' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
-            // Ctrl+R: Run focused spec
-            const focused = getFocusedSpec();
-            if (focused) {
-              send('runSpecs', { specPaths: [focused.absPath] });
+            // Ctrl+R: Run focused spec (Jest only)
+            if (isCurrentProjectJest()) {
+              const focused = getFocusedSpec();
+              if (focused) {
+                send('runSpecs', { specPaths: [focused.absPath] });
+              }
             }
             e.preventDefault();
           } else if ((e.key === 'R' || (e.key === 'r' && e.shiftKey)) && (e.ctrlKey || e.metaKey)) {
-            // Ctrl+Shift+R: Run all specs in current project
-            if (state.selectedProject) {
+            // Ctrl+Shift+R: Run all specs in current project (Jest only)
+            if (state.selectedProject && isCurrentProjectJest()) {
               send('runProject', { projectName: state.selectedProject });
             }
             e.preventDefault();
@@ -2579,9 +2622,16 @@ function getScript(): string {
             menuTitle.textContent = spec.fileName;
           }
           
-          // All actions are enabled for all project types
+          // Disable run action for Karma projects
+          const isJest = isCurrentProjectJest();
           contextMenu.querySelectorAll('.context-menu-item').forEach(item => {
-            item.classList.remove('disabled');
+            const action = item.dataset.action;
+            // Disable run for Karma projects (only allow open, pin, AI actions)
+            if (action === 'run') {
+              item.classList.toggle('disabled', !isJest);
+            } else {
+              item.classList.remove('disabled');
+            }
           });
           
           // Focus first focusable item in menu
@@ -2881,6 +2931,53 @@ function getScript(): string {
           document.body.style.cursor = '';
           document.body.style.userSelect = '';
         }
+        if (isResizingOutput && outputResizeHandle) {
+          outputResizeHandle.classList.remove('dragging');
+          isResizingOutput = false;
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+        }
+      });
+
+      // Output pane vertical resize
+      const appContainer = document.getElementById('app');
+      const outputPane = document.getElementById('output-pane');
+      const outputResizeHandle = document.getElementById('resize-output');
+      let isResizingOutput = false;
+      let startY = 0;
+      let startOutputHeight = 0;
+      let startMainHeight = 0;
+
+      outputResizeHandle?.addEventListener('mousedown', e => {
+        isResizingOutput = true;
+        startY = e.clientY;
+        startOutputHeight = outputPane.offsetHeight;
+        startMainHeight = mainContent.offsetHeight;
+        outputResizeHandle.classList.add('dragging');
+        document.body.style.cursor = 'row-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', e => {
+        if (!isResizingOutput) return;
+        
+        const deltaY = startY - e.clientY; // Negative because we're dragging up to make output bigger
+        const containerHeight = appContainer.offsetHeight;
+        const headerHeight = document.getElementById('header-bar').offsetHeight;
+        const footerHeight = document.getElementById('footer-bar').offsetHeight;
+        const resizeHandleHeight = 4;
+        
+        const availableHeight = containerHeight - headerHeight - footerHeight - resizeHandleHeight;
+        
+        let newOutputHeight = startOutputHeight + deltaY;
+        const minOutput = 100;
+        const maxOutput = availableHeight * 0.7;
+        newOutputHeight = Math.max(minOutput, Math.min(newOutputHeight, maxOutput));
+        
+        const newMainHeight = availableHeight - newOutputHeight;
+        
+        appContainer.style.gridTemplateRows = \`auto \${newMainHeight}px auto \${newOutputHeight}px auto\`;
       });
 
       // Notify extension that WebView is ready

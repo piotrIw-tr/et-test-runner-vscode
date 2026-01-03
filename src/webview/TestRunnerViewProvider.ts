@@ -206,7 +206,7 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
     return this._projects.find(p => p.name === selectedName);
   }
 
-  private sendInitialState(): void {
+  private async sendInitialState(): Promise<void> {
     if (!this._view) {
       console.log('[ET Provider] sendInitialState: No view available');
       return;
@@ -215,7 +215,8 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
     const config = vscode.workspace.getConfiguration('et-test-runner');
     const workspaceFolders = vscode.workspace.workspaceFolders;
 
-    const mappedProjects = this.mapProjectsToState();
+    // Use async version to include coverage metrics
+    const mappedProjects = await this.mapProjectsToStateAsync();
     console.log('[ET Provider] sendInitialState: Sending', mappedProjects.length, 'projects');
 
     const uiState = this.uiState.getUIState();
@@ -406,7 +407,7 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
 
   // ========== Public API for Extension ==========
 
-  public updateProjects(projects: ProjectWithSpecs[], workspaceRoot: string, branch?: string): void {
+  public async updateProjects(projects: ProjectWithSpecs[], workspaceRoot: string, branch?: string): Promise<void> {
     console.log('[ET Provider] updateProjects called with', projects.length, 'projects, view exists:', !!this._view);
     this._projects = projects;
     this._workspaceRoot = workspaceRoot;
@@ -416,7 +417,8 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
     
     // If view exists, send update; otherwise data will be sent via sendInitialState when view becomes ready
     if (this._view) {
-      const mappedProjects = this.mapProjectsToState();
+      // Use async version to include coverage metrics
+      const mappedProjects = await this.mapProjectsToStateAsync();
       console.log('[ET Provider] Sending updateProjects message with', mappedProjects.length, 'projects');
       this.postMessage({
         type: 'updateProjects',
@@ -455,8 +457,8 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
     this.postMessage({ type: 'addLog', payload: entry });
   }
 
-  public refreshView(): void {
-    this.sendInitialState();
+  public async refreshView(): Promise<void> {
+    await this.sendInitialState();
   }
 
   private postMessage(message: ExtensionMessage): void {
