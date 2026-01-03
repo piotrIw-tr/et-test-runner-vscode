@@ -24,9 +24,14 @@ export async function activate(context: vscode.ExtensionContext) {
   outputChannel.appendLine('ET Test Runner - Extension Activated');
   outputChannel.appendLine('='.repeat(80));
   outputChannel.appendLine(`Workspace: ${vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || 'None'}`);
+  outputChannel.appendLine(`Extension: ${context.extensionPath}`);
   outputChannel.appendLine(`Time: ${new Date().toLocaleString()}`);
   outputChannel.appendLine('='.repeat(80));
   outputChannel.appendLine('');
+
+  // Set extension root for template resolution
+  const { setExtensionRoot } = await import('./services/ai/generateTestContext.js');
+  setExtensionRoot(context.extensionPath);
 
   // Create status bar item
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -126,6 +131,28 @@ export async function activate(context: vscode.ExtensionContext) {
       await createSpecCommand(missingSpecPath, sourcePath, outputChannel);
       await refreshCommand(treeProvider, outputChannel);
       await refreshWebviewCommand(webviewProvider, outputChannel);
+    }),
+
+    vscode.commands.registerCommand('et-test-runner.updateTestingRules', async () => {
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot) {
+        vscode.window.showErrorMessage('No workspace found');
+        return;
+      }
+      
+      const { ensureJestTestingRules } = await import('./services/ai/generateTestContext.js');
+      const result = ensureJestTestingRules(workspaceRoot, true);
+      
+      if (result.action === 'updated') {
+        outputChannel.appendLine(`Updated .cursor/rules/jest-testing.mdc from template`);
+        vscode.window.showInformationMessage('Jest testing rules updated from template');
+      } else if (result.action === 'created') {
+        outputChannel.appendLine(`Created .cursor/rules/jest-testing.mdc`);
+        vscode.window.showInformationMessage('Jest testing rules created');
+      } else if (result.action === 'failed') {
+        outputChannel.appendLine('Failed to update rules (template not found)');
+        vscode.window.showErrorMessage('Failed to update rules - template not found');
+      }
     }),
 
     vscode.commands.registerCommand('et-test-runner.cancelTest', async () => {

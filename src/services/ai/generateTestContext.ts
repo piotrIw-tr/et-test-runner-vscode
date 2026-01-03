@@ -1,8 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-// Get the directory where this module is located (for finding bundled assets)
+// Extension root is stored here when the extension activates
+let extensionRoot: string | null = null;
+
+export function setExtensionRoot(root: string): void {
+  extensionRoot = root;
+}
 
 export type AiAssistAction = "fix" | "write" | "refactor";
 
@@ -223,24 +227,23 @@ export function ensureJestTestingRules(
   forceUpdate = false
 ): EnsureRulesResult {
   try {
-    // Find the template file relative to this module
-    // In dist: dist/services/ai/generateTestContext.js
-    // Template: docs/jest-testing-template.mdc (relative to project root)
-    // Project root is 3 levels up from dist/services/ai/
-    const projectRoot = path.resolve(__dirname, "..", "..", "..");
-    const templatePath = path.join(projectRoot, "docs", "jest-testing-template.mdc");
+    // Find the template file using extensionRoot if set, otherwise try common paths
+    let templatePath: string | null = null;
     
-    // Also check if we're running from src (development)
-    const altTemplatePath = path.resolve(__dirname, "..", "..", "..", "..", "docs", "jest-testing-template.mdc");
-    
-    let sourcePath = templatePath;
-    if (!fs.existsSync(sourcePath)) {
-      sourcePath = altTemplatePath;
+    if (extensionRoot) {
+      // Extension is activated, use its root
+      templatePath = path.join(extensionRoot, "docs", "jest-testing-template.mdc");
+      if (!fs.existsSync(templatePath)) {
+        templatePath = null;
+      }
     }
-    if (!fs.existsSync(sourcePath)) {
+    
+    if (!templatePath) {
       // Template not found - skip silently
       return { path: null, action: "failed" };
     }
+    
+    const sourcePath = templatePath;
 
     // Check destination
     const rulesDir = path.join(workspaceRoot, ".cursor", "rules");

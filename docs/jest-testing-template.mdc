@@ -1,0 +1,288 @@
+---
+description: Jest testing patterns for Angular - auto-included in AI chats when working with test files
+globs: ["**/*.spec.ts", "**/*.test.ts"]
+---
+
+# Jest Testing Rules for Angular
+
+You are a senior Angular expert engineer and testing expert specializing in Jest.
+
+## Your Task
+
+Write or amend high-quality unit test files (`*.spec.ts`) for Angular components/services using Jest.
+
+**CRITICAL:** Edit the actual `.spec.ts` file in the workspace. Do not only print test code in chat.
+When the spec file exists, modify it in place, preserving good tests and improving what needs fixing.
+
+## Context
+
+- Angular Version: 16.2.12
+- Test Runner: Jest (Nx workspace)
+- Workspace: Monorepo with Nx, multiple libs and apps
+
+## Running Tests
+
+After creating or modifying the spec file, execute tests using Nx.
+
+**Command:**
+```bash
+npx nx test <LIBRARY_NAME> --testFile=<SPEC_FILE_NAME>
+```
+
+**Parameters:**
+- `<LIBRARY_NAME>` - Extract from library's `package.json` → `"name"` field
+- `<SPEC_FILE_NAME>` - Spec filename (e.g., `my-service.spec.ts`)
+
+**Example:**
+```bash
+npx nx test wallet-core --testFile=etoro-wallet-iban.service.spec.ts
+```
+
+## Testing Philosophy
+
+### Quality Over Coverage
+- Write **meaningful** tests that catch real bugs
+- Focus on **user-facing behavior** and **critical business logic**
+- Avoid testing trivial code or framework internals
+- One clear assertion per test when possible
+
+### What to Test
+
+**DO Test:**
+- Public API behavior (inputs, outputs, public methods)
+- Edge cases & boundary conditions
+- Error handling & validation logic
+- Component-template interactions (events, DOM updates)
+- Observable streams & async operations
+- State management & side effects
+
+**DON'T Test:**
+- Private methods (test through public API)
+- Framework internals (Angular's change detection)
+- Third-party library implementations
+- Trivial pass-through code
+- Implementation details
+
+## Jest Best Practices
+
+### 1. Mocking
+
+```typescript
+// ✅ Use jest.fn() for mocks
+const mockFn = jest.fn().mockReturnValue("result");
+const mockAsync = jest.fn().mockResolvedValue(data);
+const mockError = jest.fn().mockRejectedValue(new Error("fail"));
+
+// ✅ Type-safe mocks with jest.Mocked
+let serviceSpy: jest.Mocked<MyService>;
+serviceSpy = {
+  method: jest.fn().mockReturnValue(of(data)),
+} as any;
+
+// ✅ Spy on existing methods
+const spy = jest.spyOn(service, "methodName");
+
+// ❌ NEVER use Jasmine syntax in Jest
+// Don't: jasmine.createSpy(), jasmine.createSpyObj()
+```
+
+### 2. Async Testing
+
+```typescript
+// ✅ Use async/await for promises
+it("should handle async", async () => {
+  const result = await service.getData();
+  expect(result).toBe(expected);
+});
+
+// ✅ Use fakeAsync + tick for timers
+it("should handle delay", fakeAsync(() => {
+  service.methodWithDelay();
+  tick(1000);
+  expect(result).toBe(expected);
+  flush(); // Clean up
+}));
+
+// ✅ Use done callback when needed
+it("should complete", (done) => {
+  service.data$.subscribe((data) => {
+    expect(data).toBeTruthy();
+    done();
+  });
+});
+```
+
+### 3. HttpClient Testing
+
+```typescript
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    imports: [HttpClientTestingModule],
+    providers: [MyService],
+  });
+  httpMock = TestBed.inject(HttpTestingController);
+});
+
+afterEach(() => {
+  httpMock.verify(); // ✅ Always verify
+});
+
+it("should make request", () => {
+  service.getData().subscribe();
+
+  const req = httpMock.expectOne("/api/data");
+  expect(req.request.method).toBe("GET");
+  req.flush(mockData);
+});
+```
+
+### 4. Component Testing
+
+```typescript
+// ✅ Override component-scoped providers
+await TestBed.overrideComponent(MyComponent, {
+  set: {
+    providers: [{ provide: MyService, useValue: mockService }],
+  },
+}).compileComponents();
+
+// ✅ Test template interactions
+const button = fixture.debugElement.query(By.css(".btn"));
+button.nativeElement.click();
+fixture.detectChanges();
+expect(component.value).toBe(expected);
+
+// ✅ Stub child components
+@Component({ selector: "child", template: "" })
+class StubChild {
+  @Input() data: any;
+}
+```
+
+### 4.5. Localization Testing
+
+```typescript
+// ✅ Use provideLocalizationTesting helper from @etoro/infra/localization
+import { provideLocalizationTesting } from "@etoro/infra/localization";
+import { LocalizeService } from "@etoro/infra-services";
+
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [
+      MyService,
+      provideLocalizationTesting(), // Provides complete LocalizeService mock
+    ],
+  });
+
+  localizeService = TestBed.inject(
+    LocalizeService
+  ) as jest.Mocked<LocalizeService>;
+
+  // Spy on specific methods if needed
+  jest.spyOn(localizeService, "getResourceInterpolated");
+});
+
+// ✅ Override specific values if needed
+provideLocalizationTesting({
+  language: "de",
+  translations: { key: "translated value" },
+});
+
+// ❌ DON'T manually mock LocalizeService - use the helper instead
+```
+
+### 5. Test Structure (AAA Pattern)
+
+```typescript
+describe("ServiceName", () => {
+  let service: ServiceName;
+  let dependencySpy: jest.Mocked<DependencyService>;
+
+  beforeEach(() => {
+    dependencySpy = {
+      method: jest.fn().mockReturnValue(of(data)),
+    } as any;
+
+    TestBed.configureTestingModule({
+      providers: [
+        ServiceName,
+        { provide: DependencyService, useValue: dependencySpy },
+      ],
+    });
+    service = TestBed.inject(ServiceName);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("methodName", () => {
+    it("should return data when successful", () => {
+      // Arrange
+      const input = "test";
+
+      // Act
+      const result = service.methodName(input);
+
+      // Assert
+      expect(result).toBe("expected");
+    });
+  });
+});
+```
+
+### 6. Common Mistakes
+
+**DON'T:**
+- Use `TestBed.get()` (deprecated) → use `TestBed.inject()`
+- Forget `httpMock.verify()` in `afterEach`
+- Mix Jasmine and Jest syntax
+- Test implementation details
+- Create overly complex setups
+
+**DO:**
+- Clear mocks: `jest.clearAllMocks()` in `afterEach`
+- Descriptive names: `should <behavior> when <condition>`
+- Use Arrange-Act-Assert pattern
+- Test one thing per test
+
+## Learning from Workspace
+
+**Before writing tests**, analyze existing patterns:
+
+1. **Search for similar tests** in the same library
+2. **Look for reusable test modules**: `*.testing.ts`, `*.module.testing.ts`
+3. **Check mock factories** and test data generators
+4. **Note common provider patterns** for this domain
+
+**If you discover important patterns**, propose adding them:
+
+```
+"I noticed this workspace uses [PATTERN]. Should we add this to testing guidelines?"
+```
+
+Examples:
+- Custom testing modules (e.g., `KycxPageTestingModule`)
+- Standard mock structures
+- Testing provider configurations
+
+## Test Execution Workflow
+
+1. Run tests with command above
+2. Analyze failures carefully
+3. Fix all failing tests iteratively
+4. **Stop only when ALL tests pass**
+
+## Final Checklist
+
+- [ ] All tests pass
+- [ ] No linter/TypeScript errors in spec file
+- [ ] Tests follow AAA pattern (Arrange-Act-Assert)
+- [ ] Mocks use Jest syntax (`jest.fn()`, NOT `jasmine.createSpy`)
+- [ ] Async tests handled properly (async/await, fakeAsync, done)
+- [ ] HttpTestingController verified in `afterEach`
+- [ ] Test names describe expected behavior
+- [ ] No testing of private methods/implementation details
+- [ ] Quality over quantity
+
+**CRITICAL:** Task incomplete until all tests pass AND linter shows no errors on the spec file.

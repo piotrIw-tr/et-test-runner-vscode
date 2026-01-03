@@ -89,6 +89,12 @@
         "title": "Quick Run Current File's Spec",
         "icon": "$(play-circle)",
         "category": "ET Test Runner"
+      },
+      {
+        "command": "et-test-runner.updateTestingRules",
+        "title": "Update Jest Testing Rules",
+        "icon": "$(file-symlink-file)",
+        "category": "ET Test Runner"
       }
     ],
     "viewsContainers": {

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import path from 'node:path';
-import { generateTestContext, inferSourceFile } from '../services/ai/generateTestContext.js';
+import { generateTestContext, inferSourceFile, ensureJestTestingRules } from '../services/ai/generateTestContext.js';
 import { getSpecFailureDetails } from '../services/test/parseJestResults.js';
 import { extractSpecFailureOutput } from '../services/test/parseOutputForSpec.js';
 import type { WorkspaceCache } from '../state/workspaceCache.js';
@@ -141,6 +141,12 @@ async function performAiAssistEnhanced(
     // Try to find related source file
     const sourceFile = inferSourceFile(specPath);
     const relatedSourceFiles = sourceFile ? [sourceFile] : [];
+
+    // Ensure Jest testing rules exist in target workspace (copy only if not exists)
+    const rulesResult = ensureJestTestingRules(workspaceRoot, false);
+    if (rulesResult.action === 'created') {
+      outputChannel.appendLine(`Created .cursor/rules/jest-testing.mdc`);
+    }
 
     // Extract relevant console output for this specific spec
     let finalConsoleOutput: string | undefined;
