@@ -230,7 +230,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             <h4>Other</h4>
             <div class="help-row"><kbd>Ctrl+X</kbd><span>Cancel running tests</span></div>
             <div class="help-row"><kbd>\`</kbd><span>Toggle logs pane</span></div>
-            <div class="help-row"><kbd>c</kbd><span>Toggle compact mode</span></div>
             <div class="help-row"><kbd>?</kbd><span>Show this help</span></div>
           </div>
         </div>
@@ -2827,13 +2826,6 @@ function getScript(): string {
           toggleLogs();
           e.preventDefault();
           return;
-        }
-        
-        if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-          if (currentPane !== 'output') { // Don't trigger on output pane
-            send('toggleCompactMode');
-            return;
-          }
         }
         
         if ((e.ctrlKey || e.metaKey) && e.key === 'f') {

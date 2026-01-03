@@ -53,7 +53,6 @@ The header displays comprehensive status information similar to the console app:
 - **Fuzzy Search** - Type `status:fail` or `change:unstaged` to filter
 - **Pinned Specs** - Pin frequently-used specs (★ separated at top)
 - **Run History** - Collapsible history pane with recent runs
-- **Compact Mode** - Dense layout for large spec lists
 - **Performance Tracking** - SLOW and FLAKY badges on specs
 - **Structured Output** - Toggle between raw and parsed test results
 - **Running Overlay** - Blocks interaction during test runs
@@ -97,7 +96,6 @@ Press `?` at any time to see the help modal with all shortcuts.
 |----------|--------|
 | `Ctrl+X` / `Cmd+X` | Cancel running test |
 | `` ` `` (backtick) | Toggle logs pane |
-| `c` | Toggle compact mode |
 | `?` | Show help modal |
 
 ---
@@ -124,8 +122,7 @@ In VS Code settings (`Cmd+,`):
   "et-test-runner.baseRef": "origin/main",
   "et-test-runner.coverage": false,
   "et-test-runner.autoRefresh": true,
-  "et-test-runner.skipGitFetch": false,
-  "et-test-runner.compactMode": false
+  "et-test-runner.skipGitFetch": false
 }
 ```
 
@@ -135,7 +132,6 @@ In VS Code settings (`Cmd+,`):
 | `coverage` | `false` | Run with `--coverage` flag |
 | `autoRefresh` | `true` | Auto-refresh on file changes |
 | `skipGitFetch` | `false` | Skip `git fetch` on refresh |
-| `compactMode` | `false` | Use dense UI layout |
 
 ---
 
