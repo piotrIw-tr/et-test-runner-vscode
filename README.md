@@ -71,9 +71,10 @@ Press `?` at any time to see the help modal with all shortcuts.
 | Shortcut | Action |
 |----------|--------|
 | `Tab` | Switch between Projects/Specs panes |
-| `j` / `k` or `↑` / `↓` | Navigate up/down (projects pane also selects) |
-| `Enter` | Open spec context menu |
+| `↑` / `↓` | Navigate up/down (projects pane also selects) |
+| `Enter` | Open spec context menu (Specs pane only) |
 | Click on pane | Make pane active |
+| Click on item | Select item and make pane active |
 
 ### Specs Pane
 | Shortcut | Action |
@@ -159,11 +160,13 @@ Click a project in the left pane (or first one auto-selects). Projects show:
 Note: Run is disabled for Karma projects (only Jest supported).
 
 ### 4. AI Assistance
-1. Press `Enter` on a spec to open the context menu
-2. Hover over **"✨ AI Assist ▸"** to see the submenu
+1. **Select AI Target** (optional): Click "Cursor" or "Copilot" button in the header. Hover for tooltip explanation.
+2. Press `Enter` on a spec (or click ✨ button) to open the context menu
 3. **Choose Action**: Fix Errors, Write Tests, or Refactor
-4. **Choose Target** (remembered for session):
-   - **Cursor** (default): Creates `.cursor/rules/jest-testing.mdc` with `@` file references
+   - If AI target selected: Shows generic commands (e.g., "✨ Fix Errors")
+   - If no target selected: Shows specific commands for each AI (e.g., "✨ Cursor: Fix Errors")
+4. **Target Files Created**:
+   - **Cursor**: Creates `.cursor/rules/jest-testing.mdc` with `@` file references
    - **GitHub Copilot**: Creates `.github/copilot-instructions.md` with Copilot-friendly format
 5. Context is generated with:
    - Failing test names and error messages (for Fix action)

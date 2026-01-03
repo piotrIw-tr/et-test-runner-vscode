@@ -46,10 +46,10 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         <span class="header-label">Path:</span>
         <span id="workspace-path" class="header-value header-path"></span>
         <div class="header-spacer"></div>
-        <div class="ai-selector" id="ai-selector">
+        <div class="ai-selector" id="ai-selector" title="Select your preferred AI assistant. When selected, the spec context menu will show simplified AI commands that use this provider.">
           <span class="ai-label">AI:</span>
-          <button class="ai-btn" data-ai="cursor" id="ai-btn-cursor">Cursor</button>
-          <button class="ai-btn" data-ai="copilot" id="ai-btn-copilot">Copilot</button>
+          <button class="ai-btn" data-ai="cursor" id="ai-btn-cursor" title="Use Cursor AI for test assistance. Creates .cursor/rules/jest-testing.mdc">Cursor</button>
+          <button class="ai-btn" data-ai="copilot" id="ai-btn-copilot" title="Use GitHub Copilot for test assistance. Creates .github/copilot-instructions.md">Copilot</button>
         </div>
       </div>
     </header>
@@ -209,9 +209,9 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
           <div class="help-section">
             <h4>Navigation</h4>
             <div class="help-row"><kbd>Tab</kbd><span>Switch between Projects/Specs panes</span></div>
-            <div class="help-row"><kbd>j</kbd> / <kbd>↓</kbd><span>Move down</span></div>
-            <div class="help-row"><kbd>k</kbd> / <kbd>↑</kbd><span>Move up</span></div>
-            <div class="help-row"><kbd>Enter</kbd><span>Select project / Open spec menu</span></div>
+            <div class="help-row"><kbd>↓</kbd><span>Move down</span></div>
+            <div class="help-row"><kbd>↑</kbd><span>Move up</span></div>
+            <div class="help-row"><kbd>Enter</kbd><span>Open spec menu (Specs pane only)</span></div>
           </div>
           <div class="help-section">
             <h4>Specs</h4>
@@ -2438,7 +2438,15 @@ function getScript(): string {
 
           el.querySelector('.ai-btn').addEventListener('click', e => {
             e.stopPropagation();
-            send('aiAssist', { specPath, action: 'fix' });
+            // Find the spec and show context menu at button position
+            const spec = filteredSpecs[idx];
+            if (spec) {
+              // Focus this spec first
+              focusedSpecIndex = idx;
+              highlightFocusedSpec();
+              // Show context menu at button position
+              showSpecContextMenuAtElement(spec, e.target);
+            }
           });
 
           const pinBtn = el.querySelector('.pin-btn');
@@ -2458,7 +2466,10 @@ function getScript(): string {
             // Set focus to this spec and focus the specs pane
             focusedSpecIndex = idx;
             highlightFocusedSpec();
-            focusPane('specs');
+            // Manually set pane focus without resetting the focused index
+            currentPane = 'specs';
+            Object.values(paneElements).forEach(p => p.classList.remove('focused-pane'));
+            paneElements['specs']?.classList.add('focused-pane');
             // Only allow selection for Jest projects
             if (isCurrentProjectJest()) {
               send('toggleSpec', { specPath });
@@ -2888,7 +2899,7 @@ function getScript(): string {
         
         // Pane-specific navigation
         if (currentPane === 'projects') {
-          if (e.key === 'j' || e.key === 'ArrowDown') {
+          if (e.key === 'ArrowDown') {
             focusedProjectIndex = Math.min(focusedProjectIndex + 1, state.projects.length - 1);
             // Select the project and update specs pane
             const focused = getFocusedProject();
@@ -2903,7 +2914,7 @@ function getScript(): string {
               highlightFocusedProject();
             }
             e.preventDefault();
-          } else if (e.key === 'k' || e.key === 'ArrowUp') {
+          } else if (e.key === 'ArrowUp') {
             focusedProjectIndex = Math.max(focusedProjectIndex - 1, 0);
             // Select the project and update specs pane
             const focused = getFocusedProject();
@@ -2916,19 +2927,6 @@ function getScript(): string {
               focusedSpecIndex = 0;
             } else {
               highlightFocusedProject();
-            }
-            e.preventDefault();
-          } else if (e.key === 'Enter' || e.key === ' ') {
-            // Already selected via navigation, but handle explicit selection too
-            const focused = getFocusedProject();
-            if (focused) {
-              state.selectedProject = focused.name;
-              send('clearSelection');
-              send('selectProject', { projectName: focused.name });
-              renderProjects();
-              renderSpecs();
-              focusedSpecIndex = 0;
-              highlightFocusedSpec();
             }
             e.preventDefault();
           } else if (e.key === 'r' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
@@ -2944,7 +2942,7 @@ function getScript(): string {
             e.preventDefault();
           }
         } else if (currentPane === 'specs') {
-          if (e.key === 'j' || e.key === 'ArrowDown') {
+          if (e.key === 'ArrowDown') {
             const project = state.projects.find(p => p.name === state.selectedProject);
             if (project) {
               const filteredSpecs = filterSpecs(project.specs, state.searchQuery);
@@ -2954,7 +2952,7 @@ function getScript(): string {
               highlightFocusedSpec();
             }
             e.preventDefault();
-          } else if (e.key === 'k' || e.key === 'ArrowUp') {
+          } else if (e.key === 'ArrowUp') {
             focusedSpecIndex = Math.max(focusedSpecIndex - 1, 0);
             highlightFocusedSpec();
             e.preventDefault();
@@ -3028,40 +3026,49 @@ function getScript(): string {
       const contextMenu = document.getElementById('context-menu');
 
       function showSpecContextMenu(spec) {
-        contextMenuSpec = spec;
         const focusedEl = elements.specsList.querySelector('.spec-item.focused');
         if (focusedEl) {
           const rect = focusedEl.getBoundingClientRect();
-          contextMenu.style.left = rect.left + 'px';
-          contextMenu.style.top = (rect.bottom + 4) + 'px';
-          contextMenu.style.display = 'block';
-          
-          // Set menu title to spec filename
-          const menuTitle = document.getElementById('context-menu-title');
-          if (menuTitle) {
-            menuTitle.textContent = spec.fileName;
+          showSpecContextMenuAt(spec, rect.left, rect.bottom + 4);
+        }
+      }
+      
+      function showSpecContextMenuAtElement(spec, element) {
+        const rect = element.getBoundingClientRect();
+        showSpecContextMenuAt(spec, rect.left, rect.bottom + 4);
+      }
+      
+      function showSpecContextMenuAt(spec, x, y) {
+        contextMenuSpec = spec;
+        contextMenu.style.left = x + 'px';
+        contextMenu.style.top = y + 'px';
+        contextMenu.style.display = 'block';
+        
+        // Set menu title to spec filename
+        const menuTitle = document.getElementById('context-menu-title');
+        if (menuTitle) {
+          menuTitle.textContent = spec.fileName;
+        }
+        
+        // Update AI items visibility based on selected AI target
+        contextMenu.classList.toggle('ai-selected', state.aiTarget !== null);
+        
+        // Disable run action for Karma projects
+        const isJest = isCurrentProjectJest();
+        contextMenu.querySelectorAll('.context-menu-item').forEach(item => {
+          const action = item.dataset.action;
+          // Disable run for Karma projects (only allow open, pin, AI actions)
+          if (action === 'run') {
+            item.classList.toggle('disabled', !isJest);
+          } else {
+            item.classList.remove('disabled');
           }
-          
-          // Update AI items visibility based on selected AI target
-          contextMenu.classList.toggle('ai-selected', state.aiTarget !== null);
-          
-          // Disable run action for Karma projects
-          const isJest = isCurrentProjectJest();
-          contextMenu.querySelectorAll('.context-menu-item').forEach(item => {
-            const action = item.dataset.action;
-            // Disable run for Karma projects (only allow open, pin, AI actions)
-            if (action === 'run') {
-              item.classList.toggle('disabled', !isJest);
-            } else {
-              item.classList.remove('disabled');
-            }
-          });
-          
-          // Focus first visible, non-disabled item in menu
-          const firstItem = contextMenu.querySelector('.context-menu-item:not(.disabled):not([style*="display: none"])');
-          if (firstItem) {
-            firstItem.focus();
-          }
+        });
+        
+        // Focus first visible, non-disabled item in menu
+        const firstItem = contextMenu.querySelector('.context-menu-item:not(.disabled):not([style*="display: none"])');
+        if (firstItem) {
+          firstItem.focus();
         }
       }
 
@@ -3114,11 +3121,11 @@ function getScript(): string {
         const items = Array.from(contextMenu.querySelectorAll('.context-menu-item:not(.disabled)'));
         const currentIdx = items.indexOf(document.activeElement);
         
-        if (e.key === 'ArrowDown' || e.key === 'j') {
+        if (e.key === 'ArrowDown') {
           e.preventDefault();
           const nextIdx = (currentIdx + 1) % items.length;
           items[nextIdx]?.focus();
-        } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        } else if (e.key === 'ArrowUp') {
           e.preventDefault();
           const prevIdx = currentIdx <= 0 ? items.length - 1 : currentIdx - 1;
           items[prevIdx]?.focus();
