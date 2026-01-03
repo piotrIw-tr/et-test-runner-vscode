@@ -67,8 +67,8 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         <div class="pane-commands">
           <span class="cmd"><kbd>j/k</kbd> nav</span>
           <span class="cmd"><kbd>Enter</kbd> select</span>
-          <span class="cmd"><kbd>r</kbd> run all</span>
-          <span class="cmd"><kbd>R</kbd> run changed</span>
+          <span class="cmd"><kbd>⌘R</kbd> run all</span>
+          <span class="cmd"><kbd>⌘⇧R</kbd> run changed</span>
           <span class="cmd"><kbd>Tab</kbd> →specs</span>
         </div>
         <div class="pane-content" id="projects-list"></div>
@@ -102,9 +102,8 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
           <span class="cmd"><kbd>j/k</kbd> nav</span>
           <span class="cmd"><kbd>Space</kbd> toggle</span>
           <span class="cmd"><kbd>Enter</kbd> menu</span>
-          <span class="cmd"><kbd>r</kbd> run</span>
-          <span class="cmd"><kbd>R</kbd> run all</span>
-          <span class="cmd"><kbd>⌘R</kbd> run selected</span>
+          <span class="cmd"><kbd>⌘R</kbd> run spec</span>
+          <span class="cmd"><kbd>⌘⇧R</kbd> run all</span>
           <span class="cmd"><kbd>Tab</kbd> →output</span>
         </div>
         <div class="search-container">
@@ -176,16 +175,16 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 
     <!-- Context Menu -->
     <div id="context-menu" class="context-menu" style="display: none;">
-      <div class="context-menu-item" data-action="run">▶ Run Spec</div>
-      <div class="context-menu-item" data-action="runAll">▶▶ Run All in Project</div>
+      <div class="context-menu-title" id="context-menu-title">spec.ts</div>
       <div class="context-menu-separator"></div>
-      <div class="context-menu-item" data-action="toggle">☐ Toggle Selection</div>
-      <div class="context-menu-item" data-action="pin">★ Pin/Unpin</div>
+      <div class="context-menu-item" data-action="run" tabindex="0">▶ Run Spec</div>
       <div class="context-menu-separator"></div>
-      <div class="context-menu-item" data-action="open">📄 Open File</div>
-      <div class="context-menu-item" data-action="aiFix">✨ AI Fix</div>
-      <div class="context-menu-item" data-action="aiWrite">✨ AI Write Tests</div>
-      <div class="context-menu-item" data-action="aiRefactor">✨ AI Refactor</div>
+      <div class="context-menu-item" data-action="aiFix" tabindex="0">✨ AI Fix Errors</div>
+      <div class="context-menu-item" data-action="aiWrite" tabindex="0">✨ AI Write Tests</div>
+      <div class="context-menu-item" data-action="aiRefactor" tabindex="0">✨ AI Refactor</div>
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" data-action="open" tabindex="0">📄 Open File</div>
+      <div class="context-menu-item" data-action="pin" tabindex="0">★ Pin/Unpin</div>
     </div>
   </div>
 
@@ -380,20 +379,37 @@ function getStyles(): string {
       font-weight: 600;
     }
 
-    /* Main Content */
+    /* Main Content - Resizable Panes */
     #main-content {
       display: grid;
-      grid-template-columns: 220px 1fr 200px;
+      grid-template-columns: minmax(200px, 30%) 1fr minmax(150px, 200px);
       overflow: hidden;
       min-height: 0;
     }
 
     #main-content.logs-hidden {
-      grid-template-columns: 220px 1fr;
+      grid-template-columns: minmax(200px, 30%) 1fr;
     }
 
     #main-content.logs-hidden #logs-pane {
       display: none;
+    }
+
+    /* Resize handles */
+    .resize-handle {
+      width: 4px;
+      cursor: col-resize;
+      background: transparent;
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: -2px;
+      z-index: 10;
+    }
+
+    .resize-handle:hover,
+    .resize-handle.dragging {
+      background: var(--accent);
     }
 
     /* Panes */
@@ -434,8 +450,8 @@ function getStyles(): string {
     }
 
     .pane-commands {
-      padding: 2px 8px;
-      font-size: 9px;
+      padding: 3px 8px;
+      font-size: 11px;
       color: var(--fg-dimmed);
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border-color);
@@ -443,7 +459,7 @@ function getStyles(): string {
       font-family: var(--vscode-editor-font-family), monospace;
       display: flex;
       flex-wrap: wrap;
-      gap: 2px 10px;
+      gap: 2px 12px;
     }
 
     .pane-commands .cmd {
@@ -452,10 +468,11 @@ function getStyles(): string {
 
     .pane-commands kbd {
       background: var(--bg-tertiary);
-      padding: 0 3px;
+      padding: 1px 4px;
       border-radius: 2px;
-      font-size: 8px;
+      font-size: 10px;
       color: var(--accent);
+      font-weight: 500;
     }
 
     .pane:focus .pane-commands {
@@ -880,7 +897,23 @@ function getStyles(): string {
       color: var(--fg-muted);
       display: flex;
       gap: 6px;
+      align-items: center;
+      margin-left: auto;
     }
+
+    .spec-metric-inline {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      font-size: 10px;
+      font-family: var(--vscode-editor-font-family), monospace;
+    }
+
+    .spec-metric-inline .metric-pass { color: var(--pass); font-weight: 600; }
+    .spec-metric-inline .metric-fail { color: var(--fail); font-weight: 600; }
+    .spec-metric-inline .metric-skip { color: var(--skip); }
+    .spec-metric-inline .metric-total { color: var(--fg-secondary); }
+    .spec-metric-inline .metric-duration { color: var(--fg-dimmed); margin-left: 4px; }
 
     .spec-actions {
       display: flex;
@@ -1190,21 +1223,36 @@ function getStyles(): string {
       position: fixed;
       background: var(--bg-secondary);
       border: 1px solid var(--border-color);
-      border-radius: 4px;
+      border-radius: 6px;
       padding: 4px 0;
-      min-width: 180px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      min-width: 200px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
       z-index: 1000;
     }
 
+    .context-menu-title {
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--fg-primary);
+      background: var(--bg-tertiary);
+      border-radius: 4px 4px 0 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 250px;
+    }
+
     .context-menu-item {
-      padding: 6px 12px;
+      padding: 8px 12px;
       cursor: pointer;
       font-size: 12px;
       color: var(--fg-primary);
+      outline: none;
     }
 
-    .context-menu-item:hover:not(.disabled) {
+    .context-menu-item:hover:not(.disabled),
+    .context-menu-item:focus:not(.disabled) {
       background: var(--accent);
       color: var(--bg-primary);
     }
@@ -1552,6 +1600,7 @@ function getScript(): string {
         }
         renderSpecs();
         updateFooter();
+        updateHeader(); // Update logs toggle button state
       }
 
       function handleOutputUpdate(payload) {
@@ -1560,7 +1609,9 @@ function getScript(): string {
         } else {
           elements.outputRaw.innerHTML = parseOutputWithStackLinks(payload.content);
         }
-        elements.outputRaw.scrollTop = elements.outputRaw.scrollHeight;
+        // Auto-scroll the output container to bottom
+        const outputContainer = elements.outputRaw.parentElement;
+        outputContainer.scrollTop = outputContainer.scrollHeight;
 
         // Add click handlers for stack trace links
         elements.outputRaw.querySelectorAll('.stack-link').forEach(link => {
@@ -1924,14 +1975,20 @@ function getScript(): string {
           let metricsHtml = '';
           if (spec.metrics) {
             const durationSec = (spec.metrics.durationMs / 1000).toFixed(1);
-            const trendIcon = spec.durationTrend === 'slower' ? '↑' : spec.durationTrend === 'faster' ? '↓' : '';
-            const trendClass = spec.durationTrend === 'slower' ? 'slower' : spec.durationTrend === 'faster' ? 'faster' : '';
+            const passed = spec.metrics.passed || 0;
+            const failed = spec.metrics.failed || 0;
+            const skipped = spec.metrics.skipped || 0;
+            const total = passed + failed + skipped;
             
+            // Console app style: ✓4 ✗0 ~0 Σ4 1.6s
             metricsHtml = \`
-              <span class="\${spec.testStatus === 'fail' ? 'metric-fail' : 'metric-pass'}">
-                \${spec.testStatus === 'fail' ? 'F' : 'P'}\${spec.metrics.passed}/\${spec.metrics.total}
+              <span class="spec-metric-inline">
+                <span class="metric-pass">✓\${passed}</span>
+                <span class="metric-fail">✗\${failed}</span>
+                <span class="metric-skip">~\${skipped}</span>
+                <span class="metric-total">Σ\${total}</span>
+                <span class="metric-duration">\${durationSec}s</span>
               </span>
-              <span>\${durationSec}s\${trendIcon ? \`<span class="duration-trend \${trendClass}">\${trendIcon}</span>\` : ''}</span>
               \${spec.isSlow ? '<span class="warning-badge slow">SLOW</span>' : ''}
               \${spec.isFlaky ? '<span class="warning-badge flaky">FLAKY</span>' : ''}
             \`;
@@ -2416,15 +2473,15 @@ function getScript(): string {
               highlightFocusedSpec();
             }
             e.preventDefault();
-          } else if (e.key === 'r' && !e.shiftKey) {
-            // Run all specs in focused project (only if jest)
+          } else if (e.key === 'r' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+            // Ctrl+R: Run all specs in focused project (only if jest)
             const focused = getFocusedProject();
             if (focused && focused.runner === 'jest') {
               send('runProject', { projectName: focused.name });
             }
             e.preventDefault();
-          } else if (e.key === 'R' || (e.key === 'r' && e.shiftKey)) {
-            // Run only changed specs in all jest projects
+          } else if ((e.key === 'R' || (e.key === 'r' && e.shiftKey)) && (e.ctrlKey || e.metaKey)) {
+            // Ctrl+Shift+R: Run only changed specs in all jest projects
             send('runAllChanged');
             e.preventDefault();
           }
@@ -2460,8 +2517,8 @@ function getScript(): string {
               showSpecContextMenu(focused);
             }
             e.preventDefault();
-          } else if (e.key === 'r' && !e.shiftKey) {
-            // Run focused spec (only if jest)
+          } else if (e.key === 'r' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+            // Ctrl+R: Run focused spec (only if jest)
             if (isCurrentProjectJest()) {
               const focused = getFocusedSpec();
               if (focused) {
@@ -2469,8 +2526,8 @@ function getScript(): string {
               }
             }
             e.preventDefault();
-          } else if (e.key === 'R' || (e.key === 'r' && e.shiftKey)) {
-            // Run all specs in current project (only if jest)
+          } else if ((e.key === 'R' || (e.key === 'r' && e.shiftKey)) && (e.ctrlKey || e.metaKey)) {
+            // Ctrl+Shift+R: Run all specs in current project (only if jest)
             if (state.selectedProject && isCurrentProjectJest()) {
               send('runProject', { projectName: state.selectedProject });
             }
@@ -2520,14 +2577,26 @@ function getScript(): string {
           contextMenu.style.top = (rect.bottom + 4) + 'px';
           contextMenu.style.display = 'block';
           
+          // Set menu title to spec filename
+          const menuTitle = document.getElementById('context-menu-title');
+          if (menuTitle) {
+            menuTitle.textContent = spec.fileName;
+          }
+          
           // Enable/disable run options based on runner type
           const isJest = isCurrentProjectJest();
           contextMenu.querySelectorAll('.context-menu-item').forEach(item => {
             const action = item.dataset.action;
-            if (action === 'run' || action === 'runAll') {
+            if (action === 'run') {
               item.classList.toggle('disabled', !isJest);
             }
           });
+          
+          // Focus first focusable item in menu
+          const firstItem = contextMenu.querySelector('.context-menu-item:not(.disabled)');
+          if (firstItem) {
+            firstItem.focus();
+          }
         }
       }
 
@@ -2540,6 +2609,28 @@ function getScript(): string {
       document.addEventListener('click', e => {
         if (!contextMenu.contains(e.target)) {
           hideContextMenu();
+        }
+      });
+
+      // Context menu keyboard navigation
+      contextMenu.addEventListener('keydown', e => {
+        const items = Array.from(contextMenu.querySelectorAll('.context-menu-item:not(.disabled)'));
+        const currentIdx = items.indexOf(document.activeElement);
+        
+        if (e.key === 'ArrowDown' || e.key === 'j') {
+          e.preventDefault();
+          const nextIdx = (currentIdx + 1) % items.length;
+          items[nextIdx]?.focus();
+        } else if (e.key === 'ArrowUp' || e.key === 'k') {
+          e.preventDefault();
+          const prevIdx = currentIdx <= 0 ? items.length - 1 : currentIdx - 1;
+          items[prevIdx]?.focus();
+        } else if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          document.activeElement?.click();
+        } else if (e.key === 'Escape') {
+          hideContextMenu();
+          e.preventDefault();
         }
       });
 
