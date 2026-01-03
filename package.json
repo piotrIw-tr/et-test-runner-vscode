@@ -105,7 +105,7 @@
         {
           "type": "webview",
           "id": "et-test-runner.mainView",
-          "name": "Test Runner",
+          "name": "Projects",
           "contextualTitle": "ET Test Runner"
         }
       ]

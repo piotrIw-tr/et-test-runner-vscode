@@ -3144,7 +3144,7 @@ function getScript(): string {
       const mainContent = document.getElementById('main-content');
       const projectsPane = document.getElementById('projects-pane');
       const specsPane = document.getElementById('specs-pane');
-      const logsPane = document.getElementById('logs-pane');
+      const logsPaneForResize = document.getElementById('logs-pane');
       
       let isResizing = false;
       let currentResizeHandle = null;
@@ -3164,7 +3164,7 @@ function getScript(): string {
           startWidths = {
             projects: projectsPane.offsetWidth,
             specs: specsPane.offsetWidth,
-            logs: logsPane?.offsetWidth || 0
+            logs: logsPaneForResize?.offsetWidth || 0
           };
           
           e.preventDefault();
@@ -3186,8 +3186,8 @@ function getScript(): string {
           const projectsPct = (newProjectsWidth / containerWidth * 100).toFixed(1);
           const remainingPct = 100 - parseFloat(projectsPct);
           
-          if (state.logsVisible && logsPane) {
-            const logsWidth = logsPane.offsetWidth;
+          if (state.logsVisible && logsPaneForResize) {
+            const logsWidth = logsPaneForResize.offsetWidth;
             const logsPct = (logsWidth / containerWidth * 100).toFixed(1);
             const specsPct = (remainingPct - parseFloat(logsPct)).toFixed(1);
             mainContent.style.gridTemplateColumns = \`\${projectsPct}% \${specsPct}% \${logsPct}%\`;
@@ -3196,7 +3196,7 @@ function getScript(): string {
           }
         } else if (paneName === 'specs') {
           // Resize specs pane (by moving the divider with logs)
-          if (state.logsVisible && logsPane) {
+          if (state.logsVisible && logsPaneForResize) {
             const projectsWidth = projectsPane.offsetWidth;
             const projectsPct = (projectsWidth / containerWidth * 100).toFixed(1);
             
