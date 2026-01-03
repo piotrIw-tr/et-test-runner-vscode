@@ -615,6 +615,7 @@ function getStyles(): string {
       border-right: 1px solid var(--border-color);
       overflow: hidden;
       position: relative; /* For overlay positioning */
+      background: rgba(0, 0, 0, 0.08); /* Slightly darker than base */
     }
 
     .pane:last-child {
