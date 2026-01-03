@@ -176,9 +176,27 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
       <div class="context-menu-separator"></div>
       <div class="context-menu-item" data-action="run" tabindex="0">▶ Run Spec</div>
       <div class="context-menu-separator"></div>
-      <div class="context-menu-item" data-action="aiFix" tabindex="0">✨ AI Fix Errors</div>
-      <div class="context-menu-item" data-action="aiWrite" tabindex="0">✨ AI Write Tests</div>
-      <div class="context-menu-item" data-action="aiRefactor" tabindex="0">✨ AI Refactor</div>
+      <div class="context-menu-item has-submenu" data-action="aiSubmenu" tabindex="0">
+        ✨ AI Assist ▸
+        <div class="context-submenu" id="ai-submenu">
+          <div class="submenu-section">
+            <div class="submenu-header">Action</div>
+            <div class="context-menu-item" data-action="aiFix" data-ai-action="fix" tabindex="0">🔧 Fix Errors</div>
+            <div class="context-menu-item" data-action="aiWrite" data-ai-action="write" tabindex="0">📝 Write Tests</div>
+            <div class="context-menu-item" data-action="aiRefactor" data-ai-action="refactor" tabindex="0">♻️ Refactor</div>
+          </div>
+          <div class="submenu-separator"></div>
+          <div class="submenu-section">
+            <div class="submenu-header">Target</div>
+            <div class="context-menu-item" data-action="setTarget" data-target="cursor" tabindex="0">
+              <span class="target-check" id="target-cursor">✓</span> Cursor
+            </div>
+            <div class="context-menu-item" data-action="setTarget" data-target="copilot" tabindex="0">
+              <span class="target-check" id="target-copilot"></span> GitHub Copilot
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="context-menu-separator"></div>
       <div class="context-menu-item" data-action="open" tabindex="0">📄 Open File</div>
       <div class="context-menu-item" data-action="pin" tabindex="0">★ Pin/Unpin</div>
@@ -1463,6 +1481,51 @@ function getStyles(): string {
       margin: 4px 0;
     }
 
+    /* Submenu styles */
+    .has-submenu {
+      position: relative;
+    }
+
+    .context-submenu {
+      display: none;
+      position: absolute;
+      left: 100%;
+      top: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 4px 0;
+      min-width: 180px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      z-index: 1001;
+    }
+
+    .has-submenu:hover .context-submenu,
+    .has-submenu:focus-within .context-submenu {
+      display: block;
+    }
+
+    .submenu-header {
+      padding: 4px 12px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .submenu-separator {
+      height: 1px;
+      background: var(--border-color);
+      margin: 4px 0;
+    }
+
+    .target-check {
+      display: inline-block;
+      width: 16px;
+      color: var(--accent);
+    }
+
     /* Help Modal */
     .modal-overlay {
       position: fixed;
@@ -1739,7 +1802,8 @@ function getScript(): string {
         logsVisible: false, // Hidden by default
         compactMode: false,
         focusedPane: 'projects',
-        config: { baseRef: '', branch: '', workspacePath: '' }
+        config: { baseRef: '', branch: '', workspacePath: '' },
+        aiTarget: 'cursor' // 'cursor' or 'copilot'
       };
 
       // DOM Elements
@@ -3104,18 +3168,32 @@ function getScript(): string {
               send('openFile', { filePath: contextMenuSpec.absPath });
               break;
             case 'aiFix':
-              send('aiAssist', { specPath: contextMenuSpec.absPath, action: 'fix' });
+              send('aiAssist', { specPath: contextMenuSpec.absPath, action: 'fix', target: state.aiTarget });
               break;
             case 'aiWrite':
-              send('aiAssist', { specPath: contextMenuSpec.absPath, action: 'write' });
+              send('aiAssist', { specPath: contextMenuSpec.absPath, action: 'write', target: state.aiTarget });
               break;
             case 'aiRefactor':
-              send('aiAssist', { specPath: contextMenuSpec.absPath, action: 'refactor' });
+              send('aiAssist', { specPath: contextMenuSpec.absPath, action: 'refactor', target: state.aiTarget });
               break;
+            case 'setTarget':
+              const newTarget = item.dataset.target;
+              state.aiTarget = newTarget;
+              updateAiTargetUI();
+              // Don't close menu when changing target
+              return;
+            case 'aiSubmenu':
+              // Do nothing, just show submenu
+              return;
           }
           hideContextMenu();
         });
       });
+      
+      function updateAiTargetUI() {
+        document.getElementById('target-cursor').textContent = state.aiTarget === 'cursor' ? '✓' : '';
+        document.getElementById('target-copilot').textContent = state.aiTarget === 'copilot' ? '✓' : '';
+      }
 
       function highlightFocusedSpec() {
         elements.specsList.querySelectorAll('.spec-item').forEach((el, idx) => {

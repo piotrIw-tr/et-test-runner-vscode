@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import path from 'node:path';
-import { generateTestContext, inferSourceFile, ensureJestTestingRules } from '../services/ai/generateTestContext.js';
+import fs from 'node:fs';
+import { generateTestContext, inferSourceFile, ensureJestTestingRules, type GeneratedContext } from '../services/ai/generateTestContext.js';
 import { getSpecFailureDetails } from '../services/test/parseJestResults.js';
 import { extractSpecFailureOutput } from '../services/test/parseOutputForSpec.js';
 import type { WorkspaceCache } from '../state/workspaceCache.js';
@@ -12,6 +13,95 @@ type AiAction = 'fix' | 'write' | 'refactor';
 function stripAnsi(text: string): string {
   // eslint-disable-next-line no-control-regex
   return text.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+}
+
+/**
+ * Ensures Copilot instructions file exists in .github/copilot-instructions.md
+ * Converts the Jest testing rules to Copilot format (no frontmatter, no @ references)
+ */
+function ensureCopilotInstructions(
+  workspaceRoot: string,
+  forceUpdate = false
+): { created: boolean; path: string | null } {
+  try {
+    const githubDir = path.join(workspaceRoot, '.github');
+    const destPath = path.join(githubDir, 'copilot-instructions.md');
+    
+    // If file exists and not forcing update, skip
+    if (fs.existsSync(destPath) && !forceUpdate) {
+      return { created: false, path: destPath };
+    }
+    
+    // Ensure .github directory exists
+    if (!fs.existsSync(githubDir)) {
+      fs.mkdirSync(githubDir, { recursive: true });
+    }
+    
+    // Create Copilot-friendly instructions (simpler format)
+    const content = `# Jest Testing Instructions for AI
+
+You are a senior Angular expert engineer and testing expert specializing in Jest.
+
+## Your Task
+
+Write or amend high-quality unit test files (\`*.spec.ts\`) for Angular components/services using Jest.
+
+**CRITICAL:** Edit the actual \`.spec.ts\` file in the workspace. Do not only print test code in chat.
+When the spec file exists, modify it in place, preserving good tests and improving what needs fixing.
+
+## Context
+
+- Angular Version: 16.2.12
+- Test Runner: Jest (Nx workspace)
+- Workspace: Monorepo with Nx, multiple libs and apps
+
+## Running Tests
+
+After creating or modifying the spec file, execute tests using Nx.
+
+**Command:**
+\`\`\`bash
+npx nx test <LIBRARY_NAME> --testFile=<SPEC_FILE_NAME>
+\`\`\`
+
+## Jest Best Practices
+
+### Mocking
+- Use \`jest.fn()\` for mocks
+- Use \`jest.spyOn()\` for spying
+- Never use Jasmine syntax
+
+### Async Testing
+- Use async/await for promises
+- Use fakeAsync + tick for timers
+- Always clean up with flush()
+
+### Test Structure (AAA Pattern)
+- Arrange: Set up test data
+- Act: Execute the code under test  
+- Assert: Verify the results
+
+### Common Rules
+- Use \`TestBed.inject()\` not \`TestBed.get()\`
+- Always verify HttpTestingController in afterEach
+- Clear mocks: \`jest.clearAllMocks()\` in afterEach
+- Descriptive names: \`should <behavior> when <condition>\`
+
+## Final Checklist
+
+- All tests pass
+- No linter/TypeScript errors
+- Tests follow AAA pattern
+- Mocks use Jest syntax
+- Async tests handled properly
+- Test names describe expected behavior
+`;
+    
+    fs.writeFileSync(destPath, content, 'utf8');
+    return { created: true, path: destPath };
+  } catch {
+    return { created: false, path: null };
+  }
 }
 
 export async function aiAssistCommand(
@@ -53,12 +143,15 @@ export async function aiAssistCommand(
   );
 }
 
+export type AiTarget = 'cursor' | 'copilot';
+
 export interface AiAssistContext {
   specPath: string;
   action: AiAction;
   projectName: string;
   projectRootAbs: string;
   consoleOutput?: string;
+  target?: AiTarget;
 }
 
 export async function aiAssistFromWebview(
@@ -78,6 +171,7 @@ export async function aiAssistFromWebview(
     context.projectRootAbs,
     workspaceRoot,
     context.action,
+    context.target || 'cursor',
     context.consoleOutput,
     cache,
     outputChannel
@@ -92,8 +186,8 @@ async function performAiAssist(
   cache: WorkspaceCache,
   outputChannel: vscode.OutputChannel
 ): Promise<void> {
-  // Legacy function - just call the enhanced one with no console output
-  await performAiAssistEnhanced(specPath, projectName, '', workspaceRoot, action, undefined, cache, outputChannel);
+  // Legacy function - just call the enhanced one with default target
+  await performAiAssistEnhanced(specPath, projectName, '', workspaceRoot, action, 'cursor', undefined, cache, outputChannel);
 }
 
 async function performAiAssistEnhanced(
@@ -102,6 +196,7 @@ async function performAiAssistEnhanced(
   projectRootAbs: string,
   workspaceRoot: string,
   action: AiAction,
+  target: AiTarget,
   consoleOutput: string | undefined,
   cache: WorkspaceCache,
   outputChannel: vscode.OutputChannel
@@ -142,10 +237,18 @@ async function performAiAssistEnhanced(
     const sourceFile = inferSourceFile(specPath);
     const relatedSourceFiles = sourceFile ? [sourceFile] : [];
 
-    // Ensure Jest testing rules exist in target workspace (copy only if not exists)
-    const rulesResult = ensureJestTestingRules(workspaceRoot, false);
-    if (rulesResult.action === 'created') {
-      outputChannel.appendLine(`Created .cursor/rules/jest-testing.mdc`);
+    // Ensure Jest testing rules exist in target workspace (based on target)
+    if (target === 'cursor') {
+      const rulesResult = ensureJestTestingRules(workspaceRoot, false);
+      if (rulesResult.action === 'created') {
+        outputChannel.appendLine(`Created .cursor/rules/jest-testing.mdc`);
+      }
+    } else if (target === 'copilot') {
+      // For Copilot, create .github/copilot-instructions.md
+      const copilotResult = ensureCopilotInstructions(workspaceRoot, false);
+      if (copilotResult.created) {
+        outputChannel.appendLine(`Created .github/copilot-instructions.md`);
+      }
     }
 
     // Extract relevant console output for this specific spec
@@ -178,22 +281,33 @@ async function performAiAssistEnhanced(
       consoleOutput: finalConsoleOutput,
     });
 
+    // Adjust markdown for target
+    let markdown = context.markdown;
+    if (target === 'copilot') {
+      // Remove @ references (Cursor-specific) and adjust for Copilot
+      markdown = markdown
+        .replace(/@\.cursor\/rules\/jest-testing\.mdc/g, '(see .github/copilot-instructions.md)')
+        .replace(/@([^\s]+)/g, '`$1`'); // Convert @path to `path`
+    }
+
     // Copy context to clipboard
-    await vscode.env.clipboard.writeText(context.markdown);
+    await vscode.env.clipboard.writeText(markdown);
 
-    // Try to focus the appropriate chat panel
-    const focusedChat = await focusChatPanel();
+    // Try to focus the appropriate chat panel based on target
+    const focusedChat = await focusChatPanel(target);
 
+    const targetName = target === 'cursor' ? 'Cursor' : 'GitHub Copilot';
+    
     // Show notification
     if (focusedChat) {
       vscode.window.showInformationMessage(
-        'AI context copied to clipboard. Press Cmd+V (Ctrl+V) to paste into chat.',
+        `${targetName} context copied to clipboard. Press Cmd+V (Ctrl+V) to paste into chat.`,
         'Dismiss'
       );
     } else {
       // Fallback: show in webview
       const result = await vscode.window.showInformationMessage(
-        'AI context copied to clipboard.',
+        `${targetName} context copied to clipboard.`,
         'Open Spec File',
         'Dismiss'
       );
@@ -204,7 +318,7 @@ async function performAiAssistEnhanced(
       }
     }
 
-    outputChannel.appendLine(`AI context generated for ${path.basename(specPath)} (${action})`);
+    outputChannel.appendLine(`AI context generated for ${path.basename(specPath)} (${action}, target: ${target})`);
 
   } catch (error) {
     outputChannel.appendLine(`Error generating AI context: ${error}`);
@@ -216,21 +330,23 @@ async function performAiAssistEnhanced(
  * Attempts to focus the AI chat panel in Cursor or VS Code.
  * Returns true if a chat panel was successfully focused.
  */
-async function focusChatPanel(): Promise<boolean> {
-  // Try Cursor's chat command first
-  try {
-    await vscode.commands.executeCommand('workbench.action.chat.open');
-    return true;
-  } catch {
-    // Not Cursor or command not available
-  }
-
-  // Try VS Code's Copilot Chat
-  try {
-    await vscode.commands.executeCommand('workbench.panel.chat.view.copilot.focus');
-    return true;
-  } catch {
-    // Copilot not installed or not available
+async function focusChatPanel(target: AiTarget): Promise<boolean> {
+  if (target === 'cursor') {
+    // Try Cursor's chat command first
+    try {
+      await vscode.commands.executeCommand('workbench.action.chat.open');
+      return true;
+    } catch {
+      // Not Cursor or command not available
+    }
+  } else {
+    // Try VS Code's Copilot Chat
+    try {
+      await vscode.commands.executeCommand('workbench.panel.chat.view.copilot.focus');
+      return true;
+    } catch {
+      // Copilot not installed or not available
+    }
   }
 
   // Try generic chat focus

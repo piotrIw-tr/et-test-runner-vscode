@@ -16,7 +16,7 @@ export type WebViewMessage =
   | { type: 'rerunFailed' }
   | { type: 'cancelRun' }
   | { type: 'refresh' }
-  | { type: 'aiAssist'; payload: { specPath: string; action: 'fix' | 'write' | 'refactor' } }
+  | { type: 'aiAssist'; payload: { specPath: string; action: 'fix' | 'write' | 'refactor'; target?: 'cursor' | 'copilot' } }
   | { type: 'createSpec'; payload: { missingSpecPath: string; sourcePath: string } }
   | { type: 'search'; payload: { query: string } }
   | { type: 'toggleLogs' }

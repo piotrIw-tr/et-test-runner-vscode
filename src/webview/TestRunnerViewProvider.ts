@@ -153,6 +153,7 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
             projectName: specProject?.name || 'unknown',
             projectRootAbs: specProject?.rootAbs || '',
             consoleOutput: this._outputBuffer.join('\n'),
+            target: message.payload.target || 'cursor', // 'cursor' or 'copilot'
           }
         );
         break;
