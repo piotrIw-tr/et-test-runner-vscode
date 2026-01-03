@@ -26,8 +26,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         <span id="project-info" class="header-info"></span>
         <span class="header-separator">│</span>
         <span id="cache-info" class="header-info"></span>
-        <span class="header-separator">│</span>
-        <span id="logs-indicator" class="header-logs">LOGS</span>
         <div class="header-spacer"></div>
         <div id="progress-container" class="header-progress" style="display: none;">
           <div class="progress-bar">
@@ -51,7 +49,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
     </header>
 
     <!-- Main Content Area -->
-    <main id="main-content" class="logs-hidden">
+    <main id="main-content">
       <!-- Projects Pane -->
       <aside id="projects-pane" class="pane" tabindex="1">
         <div class="resize-handle" id="resize-projects" data-pane="projects"></div>
@@ -130,17 +128,13 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         </div>
       </section>
 
-      <!-- Logs Pane -->
-      <aside id="logs-pane" class="pane" tabindex="3">
-        <div class="pane-header">
-          <span class="pane-title">LOGS</span>
-          <button id="logs-toggle" class="btn-icon" tabindex="-1" title="Toggle Logs (\`)">−</button>
+      <!-- Logs Pane (collapsible) -->
+      <aside id="logs-pane" class="pane collapsible-pane collapsed" tabindex="3">
+        <div class="pane-header clickable-header" id="logs-header">
+          <span class="pane-title">▶ LOGS</span>
+          <span class="log-count" id="log-count">(0)</span>
         </div>
-        <div class="pane-commands">
-          <span class="cmd"><kbd>\`</kbd> toggle</span>
-          <span class="cmd"><kbd>Tab</kbd> →output</span>
-        </div>
-        <div class="pane-content" id="logs-list"></div>
+        <div class="pane-content collapsible-content" id="logs-list"></div>
       </aside>
     </main>
 
@@ -250,7 +244,7 @@ function getStyles(): string {
 
     #app {
       display: grid;
-      grid-template-rows: auto 1fr auto minmax(150px, 40%) auto;
+      grid-template-rows: auto 60% auto 40% auto;
       height: 100vh;
     }
 
@@ -388,8 +382,33 @@ function getStyles(): string {
       grid-template-columns: minmax(200px, 30%) 1fr;
     }
 
-    #main-content.logs-hidden #logs-pane {
+    /* Collapsible pane (logs) */
+    .collapsible-pane {
+      min-height: 28px;
+      transition: max-height 0.2s ease;
+    }
+
+    .collapsible-pane.collapsed .collapsible-content {
       display: none;
+    }
+
+    .collapsible-pane:not(.collapsed) .collapsible-content {
+      display: block;
+    }
+
+    .clickable-header {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .clickable-header:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .log-count {
+      font-size: 10px;
+      color: var(--fg-muted);
+      margin-left: 6px;
     }
 
     /* Resize handles - vertical (between columns) */
@@ -1501,7 +1520,7 @@ function getScript(): string {
         progressFill: document.getElementById('progress-fill'),
         progressText: document.getElementById('progress-text'),
         runningIndicator: document.getElementById('running-indicator'),
-        logsIndicator: document.getElementById('logs-indicator'),
+        logCount: document.getElementById('log-count'),
         baseRef: document.getElementById('base-ref'),
         workspacePath: document.getElementById('workspace-path'),
         selectionInfo: document.getElementById('selection-info'),
@@ -2207,6 +2226,9 @@ function getScript(): string {
 
         elements.logsList.innerHTML = html;
         elements.logsList.scrollTop = elements.logsList.scrollHeight;
+        
+        // Update log count in pane header
+        elements.logCount.textContent = \`(\${state.logs.length})\`;
       }
 
       function updateRunningUI() {
@@ -2256,11 +2278,6 @@ function getScript(): string {
         const cacheEntries = state.projects.reduce((sum, p) => sum + (p.specs?.length || 0), 0);
         elements.cacheInfo.textContent = \`Cache: \${cacheEntries} specs\`;
         
-        // Logs indicator
-        elements.logsIndicator.classList.toggle('on', state.logsVisible);
-        elements.logsIndicator.classList.toggle('off', !state.logsVisible);
-        elements.logsIndicator.textContent = state.logsVisible ? 'LOGS' : 'LOGS OFF';
-        
         // Running indicator
         elements.runningIndicator.style.display = isRunning ? 'inline' : 'none';
         elements.progressContainer.style.display = isRunning ? 'flex' : 'none';
@@ -2300,7 +2317,8 @@ function getScript(): string {
       let focusedProjectIndex = -1;
       let currentPane = 'specs'; // 'projects', 'specs', 'logs', 'output'
       
-      const panes = ['projects', 'specs', 'logs', 'output'];
+      // Tab navigation only cycles between projects and specs
+      const panes = ['projects', 'specs'];
       const paneElements = {
         projects: document.getElementById('projects-pane'),
         specs: document.getElementById('specs-pane'),
@@ -2311,8 +2329,21 @@ function getScript(): string {
       function focusPane(paneName) {
         currentPane = paneName;
         Object.values(paneElements).forEach(el => el.classList.remove('focused-pane'));
-        paneElements[paneName].classList.add('focused-pane');
-        paneElements[paneName].focus();
+        paneElements[paneName]?.classList.add('focused-pane');
+        paneElements[paneName]?.focus();
+        
+        // Auto-select first item when switching panes
+        if (paneName === 'projects') {
+          focusedProjectIndex = state.projects.length > 0 ? 0 : -1;
+          highlightFocusedProject();
+        } else if (paneName === 'specs') {
+          const project = state.projects.find(p => p.name === state.selectedProject);
+          if (project) {
+            const filtered = filterSpecs(project.specs, state.searchQuery);
+            focusedSpecIndex = filtered.length > 0 ? 0 : -1;
+            highlightFocusedSpec();
+          }
+        }
       }
 
       // Event Handlers
@@ -2357,10 +2388,6 @@ function getScript(): string {
         send('cancelRun');
       });
 
-      document.getElementById('logs-toggle').addEventListener('click', () => {
-        send('toggleLogs');
-      });
-
       // History toggle
       elements.historyToggle.addEventListener('click', () => {
         const historySection = elements.historySection;
@@ -2368,9 +2395,12 @@ function getScript(): string {
         elements.historyToggle.textContent = isHidden ? '▼ Show History' : '▲ Hide History';
       });
 
-      // Logs indicator toggle
-      elements.logsIndicator.addEventListener('click', () => {
-        send('toggleLogs');
+      // Logs toggle (click on pane header to collapse/expand)
+      document.getElementById('logs-header').addEventListener('click', () => {
+        const logsPane = document.getElementById('logs-pane');
+        const isCollapsed = logsPane.classList.toggle('collapsed');
+        const title = logsPane.querySelector('.pane-title');
+        title.textContent = isCollapsed ? '▶ LOGS' : '▼ LOGS';
       });
       
       function nextPane() {
