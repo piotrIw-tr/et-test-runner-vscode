@@ -136,6 +136,7 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
         break;
 
       case 'refresh':
+        this.showLoader('Refreshing workspace...');
         await vscode.commands.executeCommand('et-test-runner.refresh');
         break;
 
@@ -159,11 +160,19 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
         break;
 
       case 'createSpec':
-        await vscode.commands.executeCommand(
-          'et-test-runner.createSpec',
-          message.payload.missingSpecPath,
-          message.payload.sourcePath
-        );
+        this.showLoader('Creating spec file...');
+        try {
+          await vscode.commands.executeCommand(
+            'et-test-runner.createSpec',
+            message.payload.missingSpecPath,
+            message.payload.sourcePath
+          );
+          // Refresh after creating spec
+          this.showLoader('Refreshing workspace...');
+          await vscode.commands.executeCommand('et-test-runner.refresh');
+        } finally {
+          this.hideLoader();
+        }
         break;
 
       case 'search':
@@ -479,6 +488,14 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
 
   public async refreshView(): Promise<void> {
     await this.sendInitialState();
+  }
+
+  public showLoader(text?: string): void {
+    this.postMessage({ type: 'showLoader', payload: { text } });
+  }
+
+  public hideLoader(): void {
+    this.postMessage({ type: 'hideLoader' });
   }
 
   private postMessage(message: ExtensionMessage): void {

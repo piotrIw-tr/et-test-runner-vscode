@@ -144,7 +144,9 @@ export type ExtensionMessage =
   | { type: 'updateRunningState'; payload: RunningState }
   | { type: 'updateUIState'; payload: Partial<UIState> }
   | { type: 'updateRunHistory'; payload: { history: RunHistoryEntry[] } }
-  | { type: 'showNotification'; payload: { message: string; type: 'info' | 'warning' | 'error' } };
+  | { type: 'showNotification'; payload: { message: string; type: 'info' | 'warning' | 'error' } }
+  | { type: 'showLoader'; payload?: { text?: string } }
+  | { type: 'hideLoader' };
 
 export interface InitializePayload {
   projects: ProjectState[];

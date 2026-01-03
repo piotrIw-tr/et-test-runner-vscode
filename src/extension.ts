@@ -72,8 +72,13 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     // Core commands
     vscode.commands.registerCommand('et-test-runner.refresh', async () => {
-      await refreshCommand(treeProvider, outputChannel);
-      await refreshWebviewCommand(webviewProvider, outputChannel);
+      webviewProvider.showLoader('Refreshing workspace...');
+      try {
+        await refreshCommand(treeProvider, outputChannel);
+        await refreshWebviewCommand(webviewProvider, outputChannel);
+      } finally {
+        webviewProvider.hideLoader();
+      }
     }),
 
     vscode.commands.registerCommand('et-test-runner.runSelected', (item) =>

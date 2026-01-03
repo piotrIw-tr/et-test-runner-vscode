@@ -56,6 +56,7 @@ The header displays comprehensive status information similar to the console app:
 - **Performance Tracking** - SLOW and FLAKY badges on specs
 - **Structured Output** - Toggle between raw and parsed test results
 - **Running Overlay** - Blocks interaction during test runs
+- **Global Loading Indicator** - Shows loading state during refresh and spec creation
 - **Resizable Panes** - Drag separators to adjust pane sizes
 - **Help Modal** - Press `?` to see all available shortcuts
 - **Jest Testing Rules** - Auto-creates `.cursor/rules/jest-testing.mdc` with AI patterns

@@ -16,6 +16,14 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
   </style>
 </head>
 <body>
+  <!-- Global Loading Overlay -->
+  <div id="global-loader" class="global-loader">
+    <div class="global-loader-content">
+      <div class="global-loader-spinner">⟳</div>
+      <div class="global-loader-text" id="global-loader-text">Loading...</div>
+    </div>
+  </div>
+  
   <div id="app">
     <!-- Header Bar - 2 lines like console app -->
     <header id="header-bar">
@@ -1667,6 +1675,46 @@ function getStyles(): string {
       color: var(--fg-secondary);
     }
 
+    /* Global Loading Overlay */
+    .global-loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .global-loader.active {
+      display: flex;
+    }
+
+    .global-loader-content {
+      background: var(--bg-secondary);
+      padding: 20px 32px;
+      border-radius: 8px;
+      border: 1px solid var(--accent);
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .global-loader-spinner {
+      font-size: 32px;
+      margin-bottom: 12px;
+      color: var(--accent);
+      animation: spin 1s linear infinite;
+    }
+
+    .global-loader-text {
+      color: var(--fg-primary);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
     /* Running Overlay */
     .running-overlay {
       position: absolute;
@@ -1885,8 +1933,21 @@ function getScript(): string {
         cacheInfo: document.getElementById('cache-info'),
         branchInfo: document.getElementById('branch-info'),
         projectsOverlay: document.getElementById('projects-overlay'),
-        specsOverlay: document.getElementById('specs-overlay')
+        specsOverlay: document.getElementById('specs-overlay'),
+        globalLoader: document.getElementById('global-loader')
       };
+
+      // Global loader functions
+      const globalLoaderText = document.getElementById('global-loader-text');
+      
+      function showGlobalLoader(text = 'Loading...') {
+        globalLoaderText.textContent = text;
+        elements.globalLoader.classList.add('active');
+      }
+      
+      function hideGlobalLoader() {
+        elements.globalLoader.classList.remove('active');
+      }
 
       // Send message to extension
       function send(type, payload) {
@@ -1904,6 +1965,7 @@ function getScript(): string {
             break;
           case 'updateProjects':
             console.log('[ET WebView] Update projects:', message.payload?.projects?.length);
+            hideGlobalLoader(); // Hide loader when projects are updated
             state.projects = message.payload.projects;
             
             // Update branch and path if provided
@@ -1924,6 +1986,12 @@ function getScript(): string {
             renderProjects();
             renderSpecs();
             updateHeader();
+            break;
+          case 'showLoader':
+            showGlobalLoader(message.payload?.text || 'Loading...');
+            break;
+          case 'hideLoader':
+            hideGlobalLoader();
             break;
           case 'updateSpecs':
             state.specs = message.payload.specs;
@@ -2907,6 +2975,7 @@ function getScript(): string {
         }
         
         if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+          showGlobalLoader('Refreshing workspace...');
           send('refresh');
           e.preventDefault();
           return;
@@ -3185,6 +3254,9 @@ function getScript(): string {
 
       // Context menu keyboard navigation
       contextMenu.addEventListener('keydown', e => {
+        // Stop propagation to prevent spec navigation while in menu
+        e.stopPropagation();
+        
         const items = Array.from(contextMenu.querySelectorAll('.context-menu-item:not(.disabled)'));
         const currentIdx = items.indexOf(document.activeElement);
         
