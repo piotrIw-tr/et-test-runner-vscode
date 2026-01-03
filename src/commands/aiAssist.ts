@@ -1,10 +1,18 @@
 import * as vscode from 'vscode';
 import path from 'node:path';
-import { generateTestContext } from '../services/ai/generateTestContext.js';
+import { generateTestContext, inferSourceFile } from '../services/ai/generateTestContext.js';
+import { getSpecFailureDetails } from '../services/test/parseJestResults.js';
+import { extractSpecFailureOutput } from '../services/test/parseOutputForSpec.js';
 import type { WorkspaceCache } from '../state/workspaceCache.js';
 import { SpecTreeItem } from '../views/treeItems.js';
 
 type AiAction = 'fix' | 'write' | 'refactor';
+
+// Strip ANSI codes from output
+function stripAnsi(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+}
 
 export async function aiAssistCommand(
   item: SpecTreeItem,
@@ -45,9 +53,16 @@ export async function aiAssistCommand(
   );
 }
 
+export interface AiAssistContext {
+  specPath: string;
+  action: AiAction;
+  projectName: string;
+  projectRootAbs: string;
+  consoleOutput?: string;
+}
+
 export async function aiAssistFromWebview(
-  specPath: string,
-  action: AiAction,
+  context: AiAssistContext,
   cache: WorkspaceCache,
   outputChannel: vscode.OutputChannel
 ): Promise<void> {
@@ -57,26 +72,16 @@ export async function aiAssistFromWebview(
     return;
   }
 
-  // Find project name from spec path
-  const { loadWorkspaceState } = await import('../services/app/loadWorkspaceState.js');
-  const config = vscode.workspace.getConfiguration('et-test-runner');
-  
-  const result = await loadWorkspaceState({
+  await performAiAssistEnhanced(
+    context.specPath,
+    context.projectName,
+    context.projectRootAbs,
     workspaceRoot,
-    baseRef: config.get<string>('baseRef', 'origin/master'),
-    skipFetch: true,
-    verbose: false
-  });
-
-  let projectName = 'unknown';
-  for (const project of result.projects) {
-    if (project.specs.some(s => s.absPath === specPath)) {
-      projectName = project.name;
-      break;
-    }
-  }
-
-  await performAiAssist(specPath, projectName, workspaceRoot, action, cache, outputChannel);
+    context.action,
+    context.consoleOutput,
+    cache,
+    outputChannel
+  );
 }
 
 async function performAiAssist(
@@ -87,31 +92,71 @@ async function performAiAssist(
   cache: WorkspaceCache,
   outputChannel: vscode.OutputChannel
 ): Promise<void> {
+  // Legacy function - just call the enhanced one with no console output
+  await performAiAssistEnhanced(specPath, projectName, '', workspaceRoot, action, undefined, cache, outputChannel);
+}
+
+async function performAiAssistEnhanced(
+  specPath: string,
+  projectName: string,
+  projectRootAbs: string,
+  workspaceRoot: string,
+  action: AiAction,
+  consoleOutput: string | undefined,
+  cache: WorkspaceCache,
+  outputChannel: vscode.OutputChannel
+): Promise<void> {
   const relPath = path.relative(workspaceRoot, specPath);
   const metrics = cache.get(relPath);
 
   try {
-    // Get failure details if test failed
+    // Get failure details from json-result.json (like console app)
     let errorMessage: string | undefined;
-    let stackTrace: string | undefined;
+    let failingTestNames: string[] | undefined;
     
-    if (metrics && metrics.exitCode !== 0 && action === 'fix') {
-      try {
-        const resultsPath = path.join(workspaceRoot, 'test-results', projectName, 'results.json');
-        const fs = await import('fs/promises');
-        const content = await fs.readFile(resultsPath, 'utf-8');
-        const results = JSON.parse(content);
-        
-        const specResult = results.testResults?.find((r: { name?: string }) => 
-          r.name?.includes(path.basename(specPath))
+    if (action === 'fix') {
+      // Try to get detailed failure info from json-result.json
+      const projectRootRel = projectRootAbs 
+        ? path.relative(workspaceRoot, projectRootAbs) 
+        : '';
+      
+      if (projectRootRel) {
+        const failureDetails = getSpecFailureDetails(
+          workspaceRoot,
+          projectRootRel,
+          specPath
         );
         
-        if (specResult?.failureMessage) {
-          errorMessage = specResult.failureMessage;
-          stackTrace = specResult.failureMessage;
+        if (failureDetails) {
+          failingTestNames = failureDetails.failingTests.map(t => t.testName);
+          const firstFailure = failureDetails.failingTests[0];
+          errorMessage = firstFailure?.failureMessage || 
+            `${failureDetails.totalFailed} test(s) failing`;
+        } else if (metrics?.jest?.failed) {
+          errorMessage = `Test has ${metrics.jest.failed} failing test(s)`;
         }
-      } catch (err) {
-        outputChannel.appendLine(`Could not load failure details: ${err}`);
+      }
+    }
+
+    // Try to find related source file
+    const sourceFile = inferSourceFile(specPath);
+    const relatedSourceFiles = sourceFile ? [sourceFile] : [];
+
+    // Extract relevant console output for this specific spec
+    let finalConsoleOutput: string | undefined;
+    if (consoleOutput && action === 'fix') {
+      const rawOutput = stripAnsi(consoleOutput);
+      const specRelPath = path.relative(workspaceRoot, specPath).split(path.sep).join('/');
+      const relevantOutput = extractSpecFailureOutput(rawOutput, specRelPath);
+      
+      // Use extracted output or fall back to full output (truncated if too large)
+      if (relevantOutput) {
+        finalConsoleOutput = relevantOutput;
+      } else if (rawOutput.length < 50000) {
+        finalConsoleOutput = rawOutput;
+      } else {
+        // Output too large, omit or summarize
+        finalConsoleOutput = '(Console output too large - see json-result.json for details)';
       }
     }
 
@@ -122,7 +167,9 @@ async function performAiAssist(
       workspaceRoot,
       action,
       errorMessage,
-      stackTrace
+      failingTestNames,
+      relatedSourceFiles,
+      consoleOutput: finalConsoleOutput,
     });
 
     // Copy context to clipboard

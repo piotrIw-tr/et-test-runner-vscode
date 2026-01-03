@@ -107,8 +107,19 @@ export async function activate(context: vscode.ExtensionContext) {
       );
     }),
 
-    vscode.commands.registerCommand('et-test-runner.aiAssistFromWebview', async (specPath: string, action: string) => {
-      await aiAssistFromWebview(specPath, action as 'fix' | 'write' | 'refactor', workspaceCache, outputChannel);
+    vscode.commands.registerCommand('et-test-runner.aiAssistFromWebview', async (context: { specPath: string; action: string; projectName: string; projectRootAbs: string; consoleOutput?: string }) => {
+      const { aiAssistFromWebview: aiAssistFn } = await import('./commands/aiAssist.js');
+      await aiAssistFn(
+        {
+          specPath: context.specPath,
+          action: context.action as 'fix' | 'write' | 'refactor',
+          projectName: context.projectName,
+          projectRootAbs: context.projectRootAbs,
+          consoleOutput: context.consoleOutput,
+        },
+        workspaceCache,
+        outputChannel
+      );
     }),
 
     vscode.commands.registerCommand('et-test-runner.createSpec', async (missingSpecPath: string, sourcePath: string) => {

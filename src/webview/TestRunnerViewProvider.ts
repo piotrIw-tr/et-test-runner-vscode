@@ -140,10 +140,20 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
         break;
 
       case 'aiAssist':
+        // Find the project for this spec
+        const specProject = this._projects.find(p => 
+          p.specs.some(s => s.absPath === message.payload.specPath)
+        );
+        
         await vscode.commands.executeCommand(
           'et-test-runner.aiAssistFromWebview',
-          message.payload.specPath,
-          message.payload.action
+          {
+            specPath: message.payload.specPath,
+            action: message.payload.action,
+            projectName: specProject?.name || 'unknown',
+            projectRootAbs: specProject?.rootAbs || '',
+            consoleOutput: this._outputBuffer.join('\n'),
+          }
         );
         break;
 

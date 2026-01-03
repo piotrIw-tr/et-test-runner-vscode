@@ -981,7 +981,12 @@ function getStyles(): string {
       gap: 6px;
       cursor: pointer;
       border-left: 2px solid transparent;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       min-height: 24px;
+    }
+
+    .spec-item:last-child {
+      border-bottom: none;
     }
 
     .spec-item:hover {
@@ -1293,16 +1298,9 @@ function getStyles(): string {
       word-break: break-all;
     }
 
-    /* Output */
-    #output-pane {
-      border-top: 1px solid var(--border-color);
-      height: 200px;
-      min-height: 100px;
-      resize: vertical;
-      overflow: hidden;
-    }
-
+    /* Output content styling */
     #output-content {
+      flex: 1;
       overflow: auto;
     }
 
@@ -1313,6 +1311,8 @@ function getStyles(): string {
       font-size: 12px;
       white-space: pre-wrap;
       word-break: break-all;
+      height: 100%;
+      box-sizing: border-box;
     }
 
     /* ANSI Colors */
