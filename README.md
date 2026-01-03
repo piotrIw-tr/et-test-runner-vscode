@@ -156,7 +156,7 @@ Click a project in the left pane (or first one auto-selects). Projects show:
 Note: Run is disabled for Karma projects (only Jest supported).
 
 ### 4. AI Assistance
-1. **Select AI Target** (optional): Click "Cursor" or "Copilot" button in the header. Hover for tooltip explanation.
+1. **Select AI Target** (optional): Click "Cursor" or "Copilot" button in the header. Click the ⓘ icon for detailed explanation.
 2. Press `Enter` on a spec (or click ✨ button) to open the context menu
 3. **Choose Action**: Fix Errors, Write Tests, or Refactor
    - If AI target selected: Shows generic commands (e.g., "✨ Fix Errors")

@@ -46,10 +46,17 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         <span class="header-label">Path:</span>
         <span id="workspace-path" class="header-value header-path"></span>
         <div class="header-spacer"></div>
-        <div class="ai-selector" id="ai-selector" title="Select your preferred AI assistant. When selected, the spec context menu will show simplified AI commands that use this provider.">
+        <div class="ai-selector" id="ai-selector">
           <span class="ai-label">AI:</span>
-          <button class="ai-btn" data-ai="cursor" id="ai-btn-cursor" title="Use Cursor AI for test assistance. Creates .cursor/rules/jest-testing.mdc">Cursor</button>
-          <button class="ai-btn" data-ai="copilot" id="ai-btn-copilot" title="Use GitHub Copilot for test assistance. Creates .github/copilot-instructions.md">Copilot</button>
+          <button class="ai-btn" data-ai="cursor" id="ai-btn-cursor">Cursor</button>
+          <button class="ai-btn" data-ai="copilot" id="ai-btn-copilot">Copilot</button>
+          <span class="ai-help" id="ai-help-icon">ⓘ</span>
+          <div class="ai-tooltip" id="ai-tooltip">
+            <strong>AI Target Selection</strong><br>
+            Select your preferred AI assistant. When selected, the spec context menu will show simplified AI commands.<br><br>
+            <strong>Cursor:</strong> Creates .cursor/rules/jest-testing.mdc<br>
+            <strong>Copilot:</strong> Creates .github/copilot-instructions.md
+          </div>
         </div>
       </div>
     </header>
@@ -501,6 +508,51 @@ function getStyles(): string {
       background: var(--accent);
       color: var(--bg-primary);
       border-color: var(--accent);
+    }
+
+    .ai-help {
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--fg-muted);
+      opacity: 0.7;
+      margin-left: 4px;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .ai-help:hover {
+      opacity: 1;
+      color: var(--accent);
+    }
+
+    .ai-tooltip {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 4px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 10px 12px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--fg-primary);
+      width: 280px;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .ai-tooltip.visible {
+      display: block;
+    }
+
+    .ai-tooltip strong {
+      color: var(--accent);
+    }
+
+    .ai-selector {
+      position: relative;
     }
 
     .header-progress {
@@ -3027,7 +3079,17 @@ function getScript(): string {
       
       function showSpecContextMenuAtElement(spec, element) {
         const rect = element.getBoundingClientRect();
-        showSpecContextMenuAt(spec, rect.left, rect.bottom + 4);
+        // Position menu so it doesn't overflow right edge - align to right side of button
+        const menuWidth = 200; // Approximate menu width
+        const rightEdge = window.innerWidth;
+        let x = rect.left;
+        
+        // If menu would overflow right edge, align to right side of button instead
+        if (rect.left + menuWidth > rightEdge) {
+          x = rect.right - menuWidth;
+        }
+        
+        showSpecContextMenuAt(spec, x, rect.bottom + 4);
       }
       
       function showSpecContextMenuAt(spec, x, y) {
@@ -3035,6 +3097,15 @@ function getScript(): string {
         contextMenu.style.left = x + 'px';
         contextMenu.style.top = y + 'px';
         contextMenu.style.display = 'block';
+        
+        // Adjust position if menu overflows viewport
+        const menuRect = contextMenu.getBoundingClientRect();
+        if (menuRect.right > window.innerWidth) {
+          contextMenu.style.left = (window.innerWidth - menuRect.width - 10) + 'px';
+        }
+        if (menuRect.bottom > window.innerHeight) {
+          contextMenu.style.top = (y - menuRect.height - 8) + 'px';
+        }
         
         // Set menu title to spec filename
         const menuTitle = document.getElementById('context-menu-title');
@@ -3103,6 +3174,10 @@ function getScript(): string {
 
       // Close context menu on click outside
       document.addEventListener('click', e => {
+        // Don't hide if clicking the AI button on a spec item (it opens the menu)
+        if (e.target.closest('.spec-action-btn.ai-btn')) {
+          return;
+        }
         if (!contextMenu.contains(e.target)) {
           hideContextMenu();
         }
@@ -3179,6 +3254,8 @@ function getScript(): string {
       // AI selector in header
       const aiBtnCursor = document.getElementById('ai-btn-cursor');
       const aiBtnCopilot = document.getElementById('ai-btn-copilot');
+      const aiHelpIcon = document.getElementById('ai-help-icon');
+      const aiTooltip = document.getElementById('ai-tooltip');
       
       function updateAiSelectorUI() {
         aiBtnCursor.classList.toggle('active', state.aiTarget === 'cursor');
@@ -3190,11 +3267,26 @@ function getScript(): string {
       aiBtnCursor.addEventListener('click', () => {
         state.aiTarget = state.aiTarget === 'cursor' ? null : 'cursor';
         updateAiSelectorUI();
+        aiTooltip.classList.remove('visible'); // Hide tooltip when selecting
       });
       
       aiBtnCopilot.addEventListener('click', () => {
         state.aiTarget = state.aiTarget === 'copilot' ? null : 'copilot';
         updateAiSelectorUI();
+        aiTooltip.classList.remove('visible'); // Hide tooltip when selecting
+      });
+      
+      // AI help tooltip - click to toggle
+      aiHelpIcon.addEventListener('click', (e) => {
+        e.stopPropagation();
+        aiTooltip.classList.toggle('visible');
+      });
+      
+      // Close tooltip when clicking elsewhere
+      document.addEventListener('click', (e) => {
+        if (!aiTooltip.contains(e.target) && e.target !== aiHelpIcon) {
+          aiTooltip.classList.remove('visible');
+        }
       });
       
       // Initialize AI selector UI
