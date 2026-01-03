@@ -54,6 +54,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
     <main id="main-content">
       <!-- Projects Pane -->
       <aside id="projects-pane" class="pane" tabindex="1">
+        <div class="resize-handle" id="resize-projects" data-pane="projects"></div>
         <div class="running-overlay" id="projects-overlay">
           <div class="running-overlay-content">
             <div class="running-overlay-spinner">⏳</div>
@@ -84,6 +85,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 
       <!-- Specs Pane -->
       <section id="specs-pane" class="pane" tabindex="2">
+        <div class="resize-handle" id="resize-specs" data-pane="specs"></div>
         <div class="running-overlay" id="specs-overlay">
           <div class="running-overlay-content">
             <div class="running-overlay-spinner">⏳</div>
@@ -325,17 +327,9 @@ function getStyles(): string {
       color: var(--bg-primary);
     }
 
-    .header-logs.on::after {
-      content: ' ON';
-    }
-
     .header-logs.off {
       background: var(--bg-tertiary);
       color: var(--fg-dimmed);
-    }
-
-    .header-logs.off::after {
-      content: ' OFF';
     }
 
     .header-spacer {
@@ -733,6 +727,13 @@ function getStyles(): string {
       font-size: 10px;
       color: var(--fg-dimmed);
       margin-left: 4px;
+      display: flex;
+      gap: 6px;
+    }
+
+    .coverage-detail {
+      color: var(--fg-muted);
+      font-size: 10px;
     }
 
     .coverage-badge {
@@ -1745,15 +1746,21 @@ function getScript(): string {
           // Line 2: Metrics (console app style)
           let metricsHtml = '';
           if (!isJest) {
-            metricsHtml = '<span class="no-run">Run N/A (Karma)</span>';
+            metricsHtml = '<span class="no-run">Karma (run disabled)</span>';
           } else if (project.metrics) {
             const total = project.metrics.passed + project.metrics.failed + project.metrics.skipped;
             const duration = (project.metrics.durationMs / 1000).toFixed(1);
             
-            // Coverage info
+            // Coverage info - show Stmts, Funcs, Branch like console app
             let coverageHtml = '';
-            if (project.metrics.coveragePercent !== undefined) {
-              coverageHtml = \`Cov \${Math.round(project.metrics.coveragePercent)}%\`;
+            if (project.metrics.coverage) {
+              const cov = project.metrics.coverage;
+              const fmtPct = v => v !== undefined ? Math.round(v) + '%' : '--';
+              coverageHtml = \`
+                <span class="coverage-detail">Stmts \${fmtPct(cov.statements)}</span>
+                <span class="coverage-detail">Funcs \${fmtPct(cov.functions)}</span>
+                <span class="coverage-detail">Branch \${fmtPct(cov.branches)}</span>
+              \`;
             } else {
               coverageHtml = '<span style="opacity:0.5">no coverage</span>';
             }
@@ -2061,10 +2068,7 @@ function getScript(): string {
           
           el.querySelector('.spec-checkbox').addEventListener('click', e => {
             e.stopPropagation();
-            // Only toggle selection for jest projects
-            if (isCurrentProjectJest()) {
-              send('toggleSpec', { specPath });
-            }
+            send('toggleSpec', { specPath });
           });
 
           el.querySelector('.run-btn').addEventListener('click', e => {
@@ -2095,10 +2099,7 @@ function getScript(): string {
             focusedSpecIndex = idx;
             highlightFocusedSpec();
             focusPane('specs');
-            // Only toggle selection for jest projects
-            if (isCurrentProjectJest()) {
-              send('toggleSpec', { specPath });
-            }
+            send('toggleSpec', { specPath });
           });
 
           el.addEventListener('dblclick', () => {
@@ -2230,12 +2231,11 @@ function getScript(): string {
 
       function updateFooter() {
         const selectedCount = state.selectedSpecs.size;
-        const isJest = isCurrentProjectJest();
         
         elements.selectionInfo.textContent = \`Selected: \${selectedCount}\`;
-        elements.runSelectedBtn.disabled = selectedCount === 0 || state.runningState.isRunning || !isJest;
+        elements.runSelectedBtn.disabled = selectedCount === 0 || state.runningState.isRunning;
         
-        if (!isJest) {
+        if (!isCurrentProjectJest()) {
           elements.runSelectedBtn.title = 'Running tests not supported for Karma projects';
         } else {
           elements.runSelectedBtn.title = '';
@@ -2504,11 +2504,9 @@ function getScript(): string {
             // Toggle selection on focused spec (only for jest projects)
             e.preventDefault(); // Prevent page scroll FIRST
             e.stopPropagation();
-            if (isCurrentProjectJest()) {
-              const focused = getFocusedSpec();
-              if (focused) {
-                send('toggleSpec', { specPath: focused.absPath });
-              }
+            const focused = getFocusedSpec();
+            if (focused) {
+              send('toggleSpec', { specPath: focused.absPath });
             }
           } else if (e.key === 'Enter') {
             // Show context menu for focused spec
@@ -2518,17 +2516,15 @@ function getScript(): string {
             }
             e.preventDefault();
           } else if (e.key === 'r' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
-            // Ctrl+R: Run focused spec (only if jest)
-            if (isCurrentProjectJest()) {
-              const focused = getFocusedSpec();
-              if (focused) {
-                send('runSpecs', { specPaths: [focused.absPath] });
-              }
+            // Ctrl+R: Run focused spec
+            const focused = getFocusedSpec();
+            if (focused) {
+              send('runSpecs', { specPaths: [focused.absPath] });
             }
             e.preventDefault();
           } else if ((e.key === 'R' || (e.key === 'r' && e.shiftKey)) && (e.ctrlKey || e.metaKey)) {
-            // Ctrl+Shift+R: Run all specs in current project (only if jest)
-            if (state.selectedProject && isCurrentProjectJest()) {
+            // Ctrl+Shift+R: Run all specs in current project
+            if (state.selectedProject) {
               send('runProject', { projectName: state.selectedProject });
             }
             e.preventDefault();
@@ -2583,13 +2579,9 @@ function getScript(): string {
             menuTitle.textContent = spec.fileName;
           }
           
-          // Enable/disable run options based on runner type
-          const isJest = isCurrentProjectJest();
+          // All actions are enabled for all project types
           contextMenu.querySelectorAll('.context-menu-item').forEach(item => {
-            const action = item.dataset.action;
-            if (action === 'run') {
-              item.classList.toggle('disabled', !isJest);
-            }
+            item.classList.remove('disabled');
           });
           
           // Focus first focusable item in menu
@@ -2804,6 +2796,92 @@ function getScript(): string {
 
         return results;
       }
+
+      // ========================================
+      // Resizable Panes
+      // ========================================
+      const mainContent = document.getElementById('main-content');
+      const projectsPane = document.getElementById('projects-pane');
+      const specsPane = document.getElementById('specs-pane');
+      const logsPane = document.getElementById('logs-pane');
+      
+      let isResizing = false;
+      let currentResizeHandle = null;
+      let startX = 0;
+      let startWidths = {};
+
+      document.querySelectorAll('.resize-handle').forEach(handle => {
+        handle.addEventListener('mousedown', e => {
+          isResizing = true;
+          currentResizeHandle = handle;
+          startX = e.clientX;
+          handle.classList.add('dragging');
+          document.body.style.cursor = 'col-resize';
+          document.body.style.userSelect = 'none';
+          
+          // Store starting widths
+          startWidths = {
+            projects: projectsPane.offsetWidth,
+            specs: specsPane.offsetWidth,
+            logs: logsPane?.offsetWidth || 0
+          };
+          
+          e.preventDefault();
+        });
+      });
+
+      document.addEventListener('mousemove', e => {
+        if (!isResizing || !currentResizeHandle) return;
+        
+        const deltaX = e.clientX - startX;
+        const paneName = currentResizeHandle.dataset.pane;
+        const containerWidth = mainContent.offsetWidth;
+        
+        if (paneName === 'projects') {
+          // Resize projects pane
+          let newProjectsWidth = startWidths.projects + deltaX;
+          newProjectsWidth = Math.max(150, Math.min(newProjectsWidth, containerWidth * 0.5));
+          
+          const projectsPct = (newProjectsWidth / containerWidth * 100).toFixed(1);
+          const remainingPct = 100 - parseFloat(projectsPct);
+          
+          if (state.logsVisible && logsPane) {
+            const logsWidth = logsPane.offsetWidth;
+            const logsPct = (logsWidth / containerWidth * 100).toFixed(1);
+            const specsPct = (remainingPct - parseFloat(logsPct)).toFixed(1);
+            mainContent.style.gridTemplateColumns = \`\${projectsPct}% \${specsPct}% \${logsPct}%\`;
+          } else {
+            mainContent.style.gridTemplateColumns = \`\${projectsPct}% 1fr\`;
+          }
+        } else if (paneName === 'specs') {
+          // Resize specs pane (by moving the divider with logs)
+          if (state.logsVisible && logsPane) {
+            const projectsWidth = projectsPane.offsetWidth;
+            const projectsPct = (projectsWidth / containerWidth * 100).toFixed(1);
+            
+            let newSpecsWidth = startWidths.specs + deltaX;
+            const minSpecs = 200;
+            const minLogs = 100;
+            const maxSpecs = containerWidth - projectsWidth - minLogs;
+            newSpecsWidth = Math.max(minSpecs, Math.min(newSpecsWidth, maxSpecs));
+            
+            const specsPct = (newSpecsWidth / containerWidth * 100).toFixed(1);
+            const logsPct = (100 - parseFloat(projectsPct) - parseFloat(specsPct)).toFixed(1);
+            
+            mainContent.style.gridTemplateColumns = \`\${projectsPct}% \${specsPct}% \${logsPct}%\`;
+          }
+        }
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (isResizing && currentResizeHandle) {
+          currentResizeHandle.classList.remove('dragging');
+          isResizing = false;
+          currentResizeHandle = null;
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+        }
+      });
 
       // Notify extension that WebView is ready
       console.log('[ET WebView] Sending ready signal');

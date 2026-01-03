@@ -48,6 +48,13 @@ export interface ProjectState {
   metrics?: ProjectMetrics;
 }
 
+export interface CoverageMetrics {
+  statements?: number;
+  functions?: number;
+  branches?: number;
+  lines?: number;
+}
+
 export interface ProjectMetrics {
   passed: number;
   failed: number;
@@ -55,6 +62,7 @@ export interface ProjectMetrics {
   total: number;
   durationMs: number;
   coveragePercent?: number;
+  coverage?: CoverageMetrics;
 }
 
 export interface SpecState {

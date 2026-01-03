@@ -15,7 +15,7 @@ import type { UIStateManager } from '../state/uiState.js';
 import type { RunningStateManager } from '../state/runningState.js';
 import type { WorkspaceCache } from '../state/workspaceCache.js';
 import { getWebviewContent } from './getWebviewContent.js';
-import { getProjectCoveragePercent } from '../services/coverage/parseCoverage.js';
+import { parseCoverageSummary } from '../services/coverage/parseCoverage.js';
 
 export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'et-test-runner.mainView';
@@ -305,12 +305,21 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
     // Try to get coverage data
     try {
       const projectRootRel = path.relative(this._workspaceRoot, project.rootAbs);
-      const coveragePercent = await getProjectCoveragePercent(this._workspaceRoot, projectRootRel);
+      const coverageSummary = await parseCoverageSummary(this._workspaceRoot, projectRootRel);
       
-      return {
-        ...baseMetrics,
-        coveragePercent
-      };
+      if (coverageSummary) {
+        return {
+          ...baseMetrics,
+          coveragePercent: coverageSummary.total.statements.pct,
+          coverage: {
+            statements: coverageSummary.total.statements.pct,
+            functions: coverageSummary.total.functions.pct,
+            branches: coverageSummary.total.branches.pct,
+            lines: coverageSummary.total.lines.pct
+          }
+        };
+      }
+      return baseMetrics;
     } catch {
       return baseMetrics;
     }
