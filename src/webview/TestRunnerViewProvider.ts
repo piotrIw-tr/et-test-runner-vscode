@@ -181,16 +181,25 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
         break;
 
       case 'openFile':
-        const uri = vscode.Uri.file(message.payload.filePath);
-        const options: vscode.TextDocumentShowOptions = {};
-        if (message.payload.line !== undefined) {
-          const pos = new vscode.Position(
-            message.payload.line - 1,
-            (message.payload.column || 1) - 1
-          );
-          options.selection = new vscode.Range(pos, pos);
+        try {
+          const filePath = message.payload.filePath;
+          if (!filePath || typeof filePath !== 'string' || filePath.trim() === '') {
+            console.error('[ET Provider] openFile: Invalid file path:', filePath);
+            break;
+          }
+          const uri = vscode.Uri.file(filePath);
+          const options: vscode.TextDocumentShowOptions = {};
+          if (message.payload.line !== undefined) {
+            const pos = new vscode.Position(
+              message.payload.line - 1,
+              (message.payload.column || 1) - 1
+            );
+            options.selection = new vscode.Range(pos, pos);
+          }
+          await vscode.window.showTextDocument(uri, options);
+        } catch (err) {
+          console.error('[ET Provider] openFile error:', err);
         }
-        await vscode.window.showTextDocument(uri, options);
         break;
 
       case 'copyToClipboard':
