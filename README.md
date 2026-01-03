@@ -159,16 +159,20 @@ Click a project in the left pane (or first one auto-selects). Projects show:
 Note: Run is disabled for Karma projects (only Jest supported).
 
 ### 4. AI Assistance
-1. Press `Enter` on a failing spec or select from context menu
-2. Choose action: **Fix** (fix failures), **Write** (add tests), or **Refactor** (improve tests)
-3. Context is generated with:
+1. Press `Enter` on a spec to open the context menu
+2. Hover over **"✨ AI Assist ▸"** to see the submenu
+3. **Choose Action**: Fix Errors, Write Tests, or Refactor
+4. **Choose Target** (remembered for session):
+   - **Cursor** (default): Creates `.cursor/rules/jest-testing.mdc` with `@` file references
+   - **GitHub Copilot**: Creates `.github/copilot-instructions.md` with Copilot-friendly format
+5. Context is generated with:
    - Failing test names and error messages (for Fix action)
    - Related source file references
    - Console output excerpts
-   - Jest testing rules (auto-created in `.cursor/rules/jest-testing.mdc`)
-4. Context is copied to clipboard
-5. Cursor/Copilot chat opens automatically
-6. Press Cmd+V to paste context
+   - Jest testing rules (auto-created based on target)
+6. Context is copied to clipboard
+7. AI chat panel opens automatically (based on target)
+8. Press Cmd+V to paste context
 
 **Update Testing Rules**: Run command `ET Test Runner: Update Jest Testing Rules` to refresh the rules template.
 
