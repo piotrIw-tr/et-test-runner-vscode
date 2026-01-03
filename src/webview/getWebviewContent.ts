@@ -35,7 +35,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         </div>
         <span id="running-indicator" class="header-running" style="display: none;">⏳ RUNNING</span>
       </div>
-      <!-- Line 2: Base, Branch, Path -->
+      <!-- Line 2: Base, Branch, Path, AI -->
       <div class="header-line header-line-secondary">
         <span class="header-label">Base:</span>
         <span id="base-ref" class="header-value"></span>
@@ -45,6 +45,12 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         <span class="header-separator">│</span>
         <span class="header-label">Path:</span>
         <span id="workspace-path" class="header-value header-path"></span>
+        <div class="header-spacer"></div>
+        <div class="ai-selector" id="ai-selector">
+          <span class="ai-label">AI:</span>
+          <button class="ai-btn" data-ai="cursor" id="ai-btn-cursor">Cursor</button>
+          <button class="ai-btn" data-ai="copilot" id="ai-btn-copilot">Copilot</button>
+        </div>
       </div>
     </header>
 
@@ -176,27 +182,17 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
       <div class="context-menu-separator"></div>
       <div class="context-menu-item" data-action="run" tabindex="0">▶ Run Spec</div>
       <div class="context-menu-separator"></div>
-      <div class="context-menu-item has-submenu" data-action="aiSubmenu" tabindex="0">
-        ✨ AI Assist ▸
-        <div class="context-submenu" id="ai-submenu">
-          <div class="submenu-section">
-            <div class="submenu-header">Action</div>
-            <div class="context-menu-item" data-action="aiFix" data-ai-action="fix" tabindex="0">🔧 Fix Errors</div>
-            <div class="context-menu-item" data-action="aiWrite" data-ai-action="write" tabindex="0">📝 Write Tests</div>
-            <div class="context-menu-item" data-action="aiRefactor" data-ai-action="refactor" tabindex="0">♻️ Refactor</div>
-          </div>
-          <div class="submenu-separator"></div>
-          <div class="submenu-section">
-            <div class="submenu-header">Target</div>
-            <div class="context-menu-item" data-action="setTarget" data-target="cursor" tabindex="0">
-              <span class="target-check" id="target-cursor">✓</span> Cursor
-            </div>
-            <div class="context-menu-item" data-action="setTarget" data-target="copilot" tabindex="0">
-              <span class="target-check" id="target-copilot"></span> GitHub Copilot
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- AI items when provider is selected (generic) -->
+      <div class="context-menu-item ai-generic" data-action="aiFix" tabindex="0">✨ Fix Errors</div>
+      <div class="context-menu-item ai-generic" data-action="aiWrite" tabindex="0">✨ Write Tests</div>
+      <div class="context-menu-item ai-generic" data-action="aiRefactor" tabindex="0">✨ Refactor</div>
+      <!-- AI items when no provider selected (explicit) -->
+      <div class="context-menu-item ai-explicit" data-action="aiFix" data-target="cursor" tabindex="0">✨ Cursor: Fix Errors</div>
+      <div class="context-menu-item ai-explicit" data-action="aiWrite" data-target="cursor" tabindex="0">✨ Cursor: Write Tests</div>
+      <div class="context-menu-item ai-explicit" data-action="aiRefactor" data-target="cursor" tabindex="0">✨ Cursor: Refactor</div>
+      <div class="context-menu-item ai-explicit" data-action="aiFix" data-target="copilot" tabindex="0">✨ Copilot: Fix Errors</div>
+      <div class="context-menu-item ai-explicit" data-action="aiWrite" data-target="copilot" tabindex="0">✨ Copilot: Write Tests</div>
+      <div class="context-menu-item ai-explicit" data-target="copilot" data-action="aiRefactor" tabindex="0">✨ Copilot: Refactor</div>
       <div class="context-menu-separator"></div>
       <div class="context-menu-item" data-action="open" tabindex="0">📄 Open File</div>
       <div class="context-menu-item" data-action="pin" tabindex="0">★ Pin/Unpin</div>
@@ -471,6 +467,41 @@ function getStyles(): string {
 
     .header-spacer {
       flex: 1;
+    }
+
+    /* AI Selector in Header */
+    .ai-selector {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .ai-label {
+      font-size: 10px;
+      color: var(--fg-muted);
+      margin-right: 2px;
+    }
+
+    .ai-btn {
+      font-size: 10px;
+      padding: 2px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 3px;
+      background: transparent;
+      color: var(--fg-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .ai-btn:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--fg-muted);
+    }
+
+    .ai-btn.active {
+      background: var(--accent);
+      color: var(--bg-primary);
+      border-color: var(--accent);
     }
 
     .header-progress {
@@ -1481,50 +1512,12 @@ function getStyles(): string {
       margin: 4px 0;
     }
 
-    /* Submenu styles */
-    .has-submenu {
-      position: relative;
-    }
+    /* AI menu items visibility based on selected provider */
+    .ai-generic { display: none; }
+    .ai-explicit { display: block; }
 
-    .context-submenu {
-      display: none;
-      position: absolute;
-      left: 100%;
-      top: 0;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 4px 0;
-      min-width: 180px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-      z-index: 1001;
-    }
-
-    .has-submenu:hover .context-submenu,
-    .has-submenu:focus-within .context-submenu {
-      display: block;
-    }
-
-    .submenu-header {
-      padding: 4px 12px;
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--fg-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .submenu-separator {
-      height: 1px;
-      background: var(--border-color);
-      margin: 4px 0;
-    }
-
-    .target-check {
-      display: inline-block;
-      width: 16px;
-      color: var(--accent);
-    }
+    .context-menu.ai-selected .ai-generic { display: block; }
+    .context-menu.ai-selected .ai-explicit { display: none; }
 
     /* Help Modal */
     .modal-overlay {
@@ -1803,7 +1796,7 @@ function getScript(): string {
         compactMode: false,
         focusedPane: 'projects',
         config: { baseRef: '', branch: '', workspacePath: '' },
-        aiTarget: 'cursor' // 'cursor' or 'copilot'
+        aiTarget: null // null (not selected), 'cursor', or 'copilot'
       };
 
       // DOM Elements
@@ -3048,6 +3041,9 @@ function getScript(): string {
             menuTitle.textContent = spec.fileName;
           }
           
+          // Update AI items visibility based on selected AI target
+          contextMenu.classList.toggle('ai-selected', state.aiTarget !== null);
+          
           // Disable run action for Karma projects
           const isJest = isCurrentProjectJest();
           contextMenu.querySelectorAll('.context-menu-item').forEach(item => {
@@ -3060,8 +3056,8 @@ function getScript(): string {
             }
           });
           
-          // Focus first focusable item in menu
-          const firstItem = contextMenu.querySelector('.context-menu-item:not(.disabled)');
+          // Focus first visible, non-disabled item in menu
+          const firstItem = contextMenu.querySelector('.context-menu-item:not(.disabled):not([style*="display: none"])');
           if (firstItem) {
             firstItem.focus();
           }
@@ -3168,32 +3164,41 @@ function getScript(): string {
               send('openFile', { filePath: contextMenuSpec.absPath });
               break;
             case 'aiFix':
-              send('aiAssist', { specPath: contextMenuSpec.absPath, action: 'fix', target: state.aiTarget });
-              break;
             case 'aiWrite':
-              send('aiAssist', { specPath: contextMenuSpec.absPath, action: 'write', target: state.aiTarget });
-              break;
             case 'aiRefactor':
-              send('aiAssist', { specPath: contextMenuSpec.absPath, action: 'refactor', target: state.aiTarget });
+              const aiAction = action.replace('ai', '').toLowerCase();
+              // Use explicit target from item, or selected target from header
+              const target = item.dataset.target || state.aiTarget || 'cursor';
+              send('aiAssist', { specPath: contextMenuSpec.absPath, action: aiAction, target });
               break;
-            case 'setTarget':
-              const newTarget = item.dataset.target;
-              state.aiTarget = newTarget;
-              updateAiTargetUI();
-              // Don't close menu when changing target
-              return;
-            case 'aiSubmenu':
-              // Do nothing, just show submenu
-              return;
           }
           hideContextMenu();
         });
       });
       
-      function updateAiTargetUI() {
-        document.getElementById('target-cursor').textContent = state.aiTarget === 'cursor' ? '✓' : '';
-        document.getElementById('target-copilot').textContent = state.aiTarget === 'copilot' ? '✓' : '';
+      // AI selector in header
+      const aiBtnCursor = document.getElementById('ai-btn-cursor');
+      const aiBtnCopilot = document.getElementById('ai-btn-copilot');
+      
+      function updateAiSelectorUI() {
+        aiBtnCursor.classList.toggle('active', state.aiTarget === 'cursor');
+        aiBtnCopilot.classList.toggle('active', state.aiTarget === 'copilot');
+        // Update context menu visibility
+        contextMenu.classList.toggle('ai-selected', state.aiTarget !== null);
       }
+      
+      aiBtnCursor.addEventListener('click', () => {
+        state.aiTarget = state.aiTarget === 'cursor' ? null : 'cursor';
+        updateAiSelectorUI();
+      });
+      
+      aiBtnCopilot.addEventListener('click', () => {
+        state.aiTarget = state.aiTarget === 'copilot' ? null : 'copilot';
+        updateAiSelectorUI();
+      });
+      
+      // Initialize AI selector UI
+      updateAiSelectorUI();
 
       function highlightFocusedSpec() {
         elements.specsList.querySelectorAll('.spec-item').forEach((el, idx) => {
