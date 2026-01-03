@@ -59,6 +59,7 @@ The header displays comprehensive status information similar to the console app:
 - **Running Overlay** - Blocks interaction during test runs
 - **Resizable Panes** - Drag separators to adjust pane sizes
 - **Help Modal** - Press `?` to see all available shortcuts
+- **Jest Testing Rules** - Auto-creates `.cursor/rules/jest-testing.mdc` with AI patterns
 
 ---
 
@@ -158,10 +159,18 @@ Click a project in the left pane (or first one auto-selects). Projects show:
 Note: Run is disabled for Karma projects (only Jest supported).
 
 ### 4. AI Assistance
-1. Click ✨ on a failing spec or select "AI Assist" from menu
-2. Context is copied to clipboard
-3. Cursor/Copilot chat opens automatically
-4. Press Cmd+V to paste context
+1. Press `Enter` on a failing spec or select from context menu
+2. Choose action: **Fix** (fix failures), **Write** (add tests), or **Refactor** (improve tests)
+3. Context is generated with:
+   - Failing test names and error messages (for Fix action)
+   - Related source file references
+   - Console output excerpts
+   - Jest testing rules (auto-created in `.cursor/rules/jest-testing.mdc`)
+4. Context is copied to clipboard
+5. Cursor/Copilot chat opens automatically
+6. Press Cmd+V to paste context
+
+**Update Testing Rules**: Run command `ET Test Runner: Update Jest Testing Rules` to refresh the rules template.
 
 ### 5. Resize Panes
 - Drag the vertical separator between Projects and Specs panes
@@ -235,6 +244,7 @@ src/
 │   ├── TestRunnerViewProvider.ts
 │   └── getWebviewContent.ts  # HTML/CSS/JS
 ├── services/                 # Business logic
+│   ├── ai/                  # AI context generation
 │   ├── coverage/            # Coverage parsing
 │   ├── git/                 # Change detection
 │   ├── nx/                  # Nx CLI resolution
@@ -245,7 +255,9 @@ src/
 │   ├── workspaceCache.ts    # Test metrics cache
 │   ├── uiState.ts           # UI persistence
 │   └── runningState.ts      # Running process
-└── types/                   # TypeScript types
+├── types/                   # TypeScript types
+docs/
+└── jest-testing-template.mdc # Jest testing rules template
 ```
 
 ---
