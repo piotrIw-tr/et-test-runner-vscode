@@ -62,7 +62,6 @@ The header displays comprehensive status information similar to the console app:
 
 ### Power User Features
 - **Type-to-Search** - Just start typing while in specs pane (no need to focus input)
-- **Fuzzy Search** - Type `status:fail` or `change:unstaged` to filter
 - **Pinned Specs** - Pin frequently-used specs (★ separated at top)
 - **Performance Tracking** - SLOW and FLAKY badges on specs
 - **Structured Output** - Default view with real-time updates and clickable test names/files for navigation; accurately resolves file paths from loaded specs
@@ -115,19 +114,6 @@ Press `?` at any time to see the help modal with all shortcuts.
 | `⌘X` / `Ctrl+X` | Cancel running test |
 | `` ` `` (backtick) | Toggle logs pane |
 | `?` | Show help modal |
-
----
-
-## Search Syntax
-
-| Filter | Example | Description |
-|--------|---------|-------------|
-| `status:` | `status:fail` | Show only failed/pass/pending |
-| `change:` | `change:unstaged` | Filter by git status |
-| `name:` | `name:auth` | Fuzzy match on filename |
-| Plain text | `service` | Fuzzy match anywhere |
-
-Combine filters: `status:fail change:unstaged`
 
 ---
 
