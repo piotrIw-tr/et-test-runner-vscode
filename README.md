@@ -2,6 +2,8 @@
 
 A VS Code/Cursor extension for smart test running in Nx monorepos with Git-based change detection and AI-assisted debugging.
 
+![ET Test Runner - Main View](screenshots/main-menu.png)
+
 ## Quick Install
 
 **Prerequisites:** Node.js 18+ (check with `node -v`)
@@ -173,6 +175,9 @@ Click a project in the left pane (or first one auto-selects). Projects show:
 Note: Run is disabled for Karma projects (only Jest supported).
 
 ### 4. AI Assistance
+
+![AI Assist Context Menu](screenshots/context-menu.png)
+
 1. **Select AI Target** (optional): Click "Cursor" or "Copilot" pill in the header. Click to select, click again to deselect. Click the `?` icon for help.
 2. Press `Enter` on a spec (or click ✨ button) to open the context menu
 3. **Choose Action**: Fix Errors, Write Tests, or Refactor
