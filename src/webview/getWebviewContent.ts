@@ -16,6 +16,18 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
   </style>
 </head>
 <body>
+  <!-- Initialization Loading Screen (shown during extension startup) - MUST BE FIRST -->
+  <div id="init-loader" style="position:absolute;top:0;left:0;width:100%;height:100%;background:#1e1e1e;display:flex;align-items:center;justify-content:center;z-index:10000;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:32px;background:#252526;border-radius:12px;border:1px solid #3c3c3c;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+      <div style="font-size:48px;">🧪</div>
+      <div style="font-size:24px;font-weight:600;color:#e0e0e0;">ET Test Runner</div>
+      <div id="init-spinner" style="width:40px;height:40px;border:3px solid #3c3c3c;border-top-color:#007acc;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+      <div id="init-status" style="font-size:14px;color:#cccccc;text-align:center;">Initializing...</div>
+      <div id="init-logs" style="width:280px;max-height:150px;overflow-y:auto;font-family:monospace;font-size:11px;color:#a0a0a0;background:#1e1e1e;border-radius:6px;padding:8px 12px;border:1px solid #3c3c3c;"></div>
+    </div>
+  </div>
+  <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+
   <!-- Global Loading Overlay (for test runs) -->
   <div id="global-loader" class="global-loader">
     <div class="global-loader-content">
@@ -25,17 +37,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
       </div>
       <div class="global-loader-text" id="global-loader-text">Loading...</div>
       <div class="global-loader-subtext" id="global-loader-subtext"></div>
-    </div>
-  </div>
-  
-  <!-- Initialization Loading Screen (shown during extension startup) -->
-  <div id="init-loader" class="init-loader">
-    <div class="init-loader-content">
-      <div class="init-loader-logo">🧪</div>
-      <div class="init-loader-title">ET Test Runner</div>
-      <div class="init-loader-spinner"></div>
-      <div class="init-loader-status" id="init-status">Initializing...</div>
-      <div class="init-loader-logs" id="init-logs"></div>
     </div>
   </div>
   
@@ -320,6 +321,7 @@ function getStyles(): string {
       background: var(--bg-primary);
       height: 100vh;
       overflow: hidden;
+      position: relative;
     }
 
     #app {
@@ -1820,11 +1822,11 @@ function getStyles(): string {
 
     /* Initialization Loading Screen */
     .init-loader {
-      position: fixed;
+      position: absolute;
       top: 0;
       left: 0;
-      right: 0;
-      bottom: 0;
+      width: 100%;
+      height: 100%;
       background: #1e1e1e;
       display: flex;
       align-items: center;
