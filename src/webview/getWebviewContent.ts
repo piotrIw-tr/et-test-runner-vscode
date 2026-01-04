@@ -325,11 +325,12 @@ function getStyles(): string {
     }
 
     #bottom-section.collapsed {
+      flex: none !important;
       height: auto !important;
     }
 
     #bottom-section.collapsed .bottom-content {
-      display: none;
+      display: none !important;
     }
 
     #bottom-section.collapsed .bottom-toggle-btn {
@@ -673,15 +674,24 @@ function getStyles(): string {
       width: 4px;
       cursor: col-resize;
       background: transparent;
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      right: -2px;
+      flex-shrink: 0;
       z-index: 10;
     }
 
     .resize-handle:hover,
     .resize-handle.dragging {
+      background: var(--accent);
+    }
+
+    /* Resize handle between output and logs */
+    #resize-logs {
+      width: 5px;
+      background: var(--border-color);
+      cursor: ew-resize;
+    }
+
+    #resize-logs:hover,
+    #resize-logs.dragging {
       background: var(--accent);
     }
 
@@ -2803,7 +2813,7 @@ function getScript(): string {
         toggleBottomSection();
       });
       
-      // Logs pane resizing (using the resize handle)
+      // Logs pane resizing (using the resize handle between output and logs)
       let logsResizing = false;
       let logsStartX = 0;
       let logsStartWidth = 280;
@@ -2811,16 +2821,19 @@ function getScript(): string {
       
       if (logsResizeHandle) {
         logsResizeHandle.addEventListener('mousedown', (e) => {
+          e.stopPropagation(); // Prevent other handlers
           logsResizing = true;
           logsStartX = e.clientX;
           logsStartWidth = logsPane.offsetWidth;
+          logsResizeHandle.classList.add('dragging');
           document.body.style.cursor = 'ew-resize';
+          document.body.style.userSelect = 'none';
           e.preventDefault();
         });
       }
       
       document.addEventListener('mousemove', (e) => {
-        if (logsResizing) {
+        if (logsResizing && logsPane) {
           const delta = logsStartX - e.clientX;
           const newWidth = Math.max(150, Math.min(600, logsStartWidth + delta));
           logsPane.style.width = newWidth + 'px';
@@ -2835,7 +2848,11 @@ function getScript(): string {
       document.addEventListener('mouseup', () => {
         if (logsResizing) {
           logsResizing = false;
+          if (logsResizeHandle) {
+            logsResizeHandle.classList.remove('dragging');
+          }
           document.body.style.cursor = '';
+          document.body.style.userSelect = '';
         }
       });
       
@@ -3763,12 +3780,14 @@ function getScript(): string {
       let startX = 0;
       let startWidths = {};
 
-      document.querySelectorAll('.resize-handle').forEach(handle => {
-        handle.addEventListener('mousedown', e => {
+      // Only handle project pane resize here (logs is handled separately)
+      const projectsResizeHandle = document.getElementById('resize-projects');
+      if (projectsResizeHandle) {
+        projectsResizeHandle.addEventListener('mousedown', e => {
           isResizing = true;
-          currentResizeHandle = handle;
+          currentResizeHandle = projectsResizeHandle;
           startX = e.clientX;
-          handle.classList.add('dragging');
+          projectsResizeHandle.classList.add('dragging');
           document.body.style.cursor = 'col-resize';
           document.body.style.userSelect = 'none';
           
@@ -3781,7 +3800,7 @@ function getScript(): string {
           
           e.preventDefault();
         });
-      });
+      }
 
       document.addEventListener('mousemove', e => {
         if (!isResizing || !currentResizeHandle) return;
