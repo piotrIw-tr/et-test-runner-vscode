@@ -3067,10 +3067,13 @@ function getScript(): string {
         });
         
         // Focus first visible, non-disabled item in menu
-        const firstItem = contextMenu.querySelector('.context-menu-item:not(.disabled):not([style*="display: none"])');
-        if (firstItem) {
-          firstItem.focus();
-        }
+        // Need to wait a tick for CSS to apply the ai-selected class
+        setTimeout(() => {
+          const items = getVisibleMenuItems(contextMenu);
+          if (items.length > 0) {
+            items[0].focus();
+          }
+        }, 0);
       }
 
       function hideContextMenu() {
@@ -3253,20 +3256,34 @@ function getScript(): string {
         }
       });
 
+      // Helper to get visible, non-disabled menu items
+      function getVisibleMenuItems(menu) {
+        return Array.from(menu.querySelectorAll('.context-menu-item')).filter(item => {
+          // Check if item is disabled
+          if (item.classList.contains('disabled')) return false;
+          // Check if item is hidden via CSS (display: none)
+          const style = window.getComputedStyle(item);
+          if (style.display === 'none') return false;
+          return true;
+        });
+      }
+      
       // Context menu keyboard navigation
       contextMenu.addEventListener('keydown', e => {
         // Stop propagation to prevent spec navigation while in menu
         e.stopPropagation();
         
-        const items = Array.from(contextMenu.querySelectorAll('.context-menu-item:not(.disabled)'));
+        const items = getVisibleMenuItems(contextMenu);
         const currentIdx = items.indexOf(document.activeElement);
         
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          const nextIdx = (currentIdx + 1) % items.length;
+          // If not focused on any item, start at first; otherwise go to next
+          const nextIdx = currentIdx < 0 ? 0 : (currentIdx + 1) % items.length;
           items[nextIdx]?.focus();
         } else if (e.key === 'ArrowUp') {
           e.preventDefault();
+          // If not focused on any item, start at last; otherwise go to previous
           const prevIdx = currentIdx <= 0 ? items.length - 1 : currentIdx - 1;
           items[prevIdx]?.focus();
         } else if (e.key === 'Enter' || e.key === ' ') {
@@ -3444,10 +3461,23 @@ function getScript(): string {
 
         elements.outputStructured.innerHTML = html || '<div class="empty-state">No test results yet</div>';
         
+        // Helper to resolve relative path to absolute using workspace root
+        function resolveFilePath(relPath) {
+          if (!relPath) return null;
+          // If already absolute, return as-is
+          if (relPath.startsWith('/')) return relPath;
+          // Otherwise, prepend workspace root
+          if (state.config && state.config.workspacePath) {
+            return state.config.workspacePath + '/' + relPath;
+          }
+          return relPath;
+        }
+        
         // Add click handlers for navigation
         elements.outputStructured.querySelectorAll('.structured-header.clickable').forEach(header => {
           header.addEventListener('click', () => {
-            const filePath = header.closest('.structured-result').dataset.file;
+            const relPath = header.closest('.structured-result').dataset.file;
+            const filePath = resolveFilePath(relPath);
             if (filePath) {
               send('openFile', { filePath });
             }
@@ -3456,7 +3486,8 @@ function getScript(): string {
         
         elements.outputStructured.querySelectorAll('.structured-test').forEach(testEl => {
           testEl.addEventListener('click', () => {
-            const filePath = testEl.dataset.file;
+            const relPath = testEl.dataset.file;
+            const filePath = resolveFilePath(relPath);
             const testName = testEl.dataset.test;
             if (filePath) {
               // Try to open the file - we'll search for the test name
@@ -3468,7 +3499,8 @@ function getScript(): string {
         elements.outputStructured.querySelectorAll('.structured-location').forEach(locEl => {
           locEl.addEventListener('click', (e) => {
             e.stopPropagation();
-            const filePath = locEl.dataset.file;
+            const relPath = locEl.dataset.file;
+            const filePath = resolveFilePath(relPath);
             const line = parseInt(locEl.dataset.line, 10) || 1;
             if (filePath) {
               send('openFile', { filePath, line });
