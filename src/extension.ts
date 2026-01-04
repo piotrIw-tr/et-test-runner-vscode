@@ -271,9 +271,26 @@ export async function activate(context: vscode.ExtensionContext) {
     setupFileWatchers(context, treeProvider, webviewProvider);
   }
 
-  // Initial load - populate both tree provider and webview
-  await refreshCommand(treeProvider, outputChannel);
-  await refreshWebviewCommand(webviewProvider, outputChannel);
+  // Initial load - run in background to not block extension activation
+  // This allows the webview to show immediately with a loading state
+  outputChannel.appendLine('Starting background workspace scan...');
+  const startTime = Date.now();
+  
+  // Don't await - let it run in the background
+  (async () => {
+    try {
+      await refreshCommand(treeProvider, outputChannel);
+      outputChannel.appendLine(`Tree provider loaded in ${Date.now() - startTime}ms`);
+      
+      await refreshWebviewCommand(webviewProvider, outputChannel);
+      outputChannel.appendLine(`Webview refreshed in ${Date.now() - startTime}ms total`);
+      
+      webviewProvider.addLog('info', `Workspace loaded in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+    } catch (error) {
+      outputChannel.appendLine(`Initial load error: ${error}`);
+      webviewProvider.addLog('error', `Load failed: ${error}`);
+    }
+  })();
 
   // Log configuration
   outputChannel.appendLine('Configuration:');

@@ -33,10 +33,16 @@ async function resolveCompareRef(cwd: string, baseRef: string): Promise<string> 
 async function tryFetchOrigin(cwd: string, baseRef: string, verbose: boolean): Promise<void> {
   if (isShaLike(baseRef)) return;
   const baseBranch = baseRef.startsWith('origin/') ? baseRef.slice('origin/'.length) : baseRef;
-  // Best-effort: fetch can fail offline; we don’t want to break the tool.
+  // Best-effort: fetch can fail offline; we don't want to break the tool.
+  const fetchStart = Date.now();
+  if (verbose) {
+    console.log(`[git] Starting fetch origin ${baseBranch}...`);
+  }
   const res = await execa('git', ['fetch', 'origin', baseBranch, '--quiet'], { cwd, reject: false });
-  if (verbose && res.exitCode !== 0) {
-    // eslint-disable-next-line no-console
+  if (verbose) {
+    console.log(`[git] Fetch completed in ${Date.now() - fetchStart}ms (exit: ${res.exitCode})`);
+  }
+  if (res.exitCode !== 0 && verbose) {
     console.error(`[nx-test-ui] git fetch origin ${baseBranch} failed (continuing)`);
   }
 }
