@@ -7,6 +7,7 @@ export interface GetChangedFilesOptions {
   baseRef: string;
   skipFetch: boolean;
   verbose: boolean;
+  log?: (msg: string) => void;
 }
 
 function isShaLike(ref: string): boolean {
@@ -57,21 +58,23 @@ async function listChangedFiles(cwd: string, args: string[]): Promise<string[]> 
 
 export async function getChangedFiles(opts: GetChangedFilesOptions): Promise<ChangedFile[]> {
   const startTime = Date.now();
+  const log = opts.log || console.log;
   
   const gitRootRes = await execa('git', ['rev-parse', '--show-toplevel'], { cwd: opts.cwd });
   const gitRoot = gitRootRes.stdout.trim();
-  console.log(`[getChangedFiles] git root resolved in ${Date.now() - startTime}ms`);
+  log(`[TIMING] git root resolved in ${Date.now() - startTime}ms`);
 
   if (!opts.skipFetch) {
     const fetchStart = Date.now();
+    log(`[TIMING] Starting git fetch...`);
     await tryFetchOrigin(gitRoot, opts.baseRef, opts.verbose);
-    console.log(`[getChangedFiles] fetch completed in ${Date.now() - fetchStart}ms`);
+    log(`[TIMING] git fetch completed in ${Date.now() - fetchStart}ms`);
   } else {
-    console.log(`[getChangedFiles] skipping fetch (skipFetch=true)`);
+    log(`[TIMING] Skipping git fetch (skipGitFetch=true)`);
   }
 
   const compareRef = await resolveCompareRef(gitRoot, opts.baseRef);
-  console.log(`[getChangedFiles] compareRef=${compareRef}`);
+  log(`[TIMING] Using compareRef: ${compareRef}`);
 
   const changed = new Map<string, ChangeStatus>(); // relPath -> status
 
@@ -81,7 +84,7 @@ export async function getChangedFiles(opts: GetChangedFilesOptions): Promise<Cha
   for (const file of unstagedFiles) {
     changed.set(file, 'U');
   }
-  console.log(`[getChangedFiles] unstaged: ${unstagedFiles.length} files in ${Date.now() - unstagedStart}ms`);
+  log(`[TIMING] git diff (unstaged): ${unstagedFiles.length} files in ${Date.now() - unstagedStart}ms`);
 
   // 2) Staged overrides unstaged
   const stagedStart = Date.now();
@@ -89,7 +92,7 @@ export async function getChangedFiles(opts: GetChangedFilesOptions): Promise<Cha
   for (const file of stagedFiles) {
     changed.set(file, 'S');
   }
-  console.log(`[getChangedFiles] staged: ${stagedFiles.length} files in ${Date.now() - stagedStart}ms`);
+  log(`[TIMING] git diff (staged): ${stagedFiles.length} files in ${Date.now() - stagedStart}ms`);
 
   // 3) Committed vs base (only if not already staged/unstaged)
   const committedStart = Date.now();
@@ -102,9 +105,9 @@ export async function getChangedFiles(opts: GetChangedFilesOptions): Promise<Cha
   for (const file of committedFiles) {
     if (!changed.has(file)) changed.set(file, 'C');
   }
-  console.log(`[getChangedFiles] committed: ${committedFiles.length} files in ${Date.now() - committedStart}ms`);
+  log(`[TIMING] git diff (committed vs ${compareRef}): ${committedFiles.length} files in ${Date.now() - committedStart}ms`);
 
-  console.log(`[getChangedFiles] TOTAL: ${changed.size} changed files in ${Date.now() - startTime}ms`);
+  log(`[TIMING] getChangedFiles TOTAL: ${changed.size} changed files in ${Date.now() - startTime}ms`);
 
   return [...changed.entries()].map(([relPathFromGitRoot, status]) => ({
     relPathFromGitRoot,

@@ -57,14 +57,15 @@ export async function refreshAll(
     outputChannel.appendLine(`Base ref: ${baseRef}, skipFetch: ${skipFetch}`);
     webviewProvider.addLog('debug', `Base ref: ${baseRef}`);
 
-    // Load workspace state ONCE
+    // Load workspace state ONCE - pass outputChannel for timing logs
     outputChannel.appendLine('Loading workspace state...');
     const loadStart = Date.now();
     const result = await loadWorkspaceState({
       workspaceRoot,
       baseRef,
       skipFetch,
-      verbose
+      verbose,
+      log: (msg) => outputChannel.appendLine(msg)
     });
     outputChannel.appendLine(`Workspace state loaded in ${Date.now() - loadStart}ms`);
 

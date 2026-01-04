@@ -14,6 +14,7 @@ export interface ResolveChangedSpecsOptions {
   workspaceRoot: string;
   projects: ProjectInfo[];
   changedFiles: ChangedFile[];
+  log?: (msg: string) => void;
 }
 
 async function pathExists(p: string): Promise<boolean> {
@@ -102,7 +103,8 @@ function mergeSpecEntry(existing: SpecEntry | undefined, incoming: SpecEntry): S
 
 export async function resolveChangedSpecs(opts: ResolveChangedSpecsOptions): Promise<ResolveChangedSpecsResult> {
   const startTime = Date.now();
-  console.log(`[resolveChangedSpecs] Starting with ${opts.changedFiles.length} changed files, ${opts.projects.length} projects`);
+  const log = opts.log || console.log;
+  log(`[TIMING] resolveChangedSpecs starting with ${opts.changedFiles.length} changed files, ${opts.projects.length} projects`);
   
   const projectsByRootLenDesc = [...opts.projects].sort((a, b) => b.rootAbs.length - a.rootAbs.length);
 
@@ -115,7 +117,7 @@ export async function resolveChangedSpecs(opts: ResolveChangedSpecsOptions): Pro
   const relevantFiles = opts.changedFiles.filter(changed => 
     changed.absPath === opts.workspaceRoot || changed.absPath.startsWith(wsRoot)
   );
-  console.log(`[resolveChangedSpecs] ${relevantFiles.length} files within workspace root`);
+  log(`[TIMING] ${relevantFiles.length} files within workspace root`);
 
   // Collect all paths we need to check for existence (batch operation)
   const pathsToCheck = new Set<string>();
@@ -134,7 +136,7 @@ export async function resolveChangedSpecs(opts: ResolveChangedSpecsOptions): Pro
   }
 
   // Batch check all paths at once (parallel)
-  console.log(`[resolveChangedSpecs] Checking ${pathsToCheck.size} paths for existence...`);
+  log(`[TIMING] Checking ${pathsToCheck.size} paths for existence...`);
   const existsCheckStart = Date.now();
   const existsMap = new Map<string, boolean>();
   const existsPromises = [...pathsToCheck].map(async (p) => {
@@ -142,7 +144,7 @@ export async function resolveChangedSpecs(opts: ResolveChangedSpecsOptions): Pro
     existsMap.set(p, exists);
   });
   await Promise.all(existsPromises);
-  console.log(`[resolveChangedSpecs] Path existence check: ${Date.now() - existsCheckStart}ms`);
+  log(`[TIMING] Path existence check: ${Date.now() - existsCheckStart}ms for ${pathsToCheck.size} paths`);
 
   // Process spec files
   for (const changed of specFiles) {
@@ -211,7 +213,7 @@ export async function resolveChangedSpecs(opts: ResolveChangedSpecsOptions): Pro
   projects.sort((a, b) => a.name.localeCompare(b.name));
 
   const totalSpecs = projects.reduce((sum, p) => sum + p.specs.length, 0);
-  console.log(`[resolveChangedSpecs] Completed in ${Date.now() - startTime}ms: ${projects.length} projects with specs, ${totalSpecs} total specs`);
+  log(`[TIMING] resolveChangedSpecs completed in ${Date.now() - startTime}ms: ${projects.length} projects, ${totalSpecs} specs`);
 
   return { projects, missingSpecs: globalMissingSpecs };
 }
