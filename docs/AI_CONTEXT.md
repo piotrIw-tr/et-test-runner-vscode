@@ -173,7 +173,7 @@ When requesting a feature:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ Header: Status | Project | Cache | Branches | AI btns  │
+│ Header: Status | Branches | Path | AI selector (?)      │
 ├──────────────┬──────────────────────────────────────────┤
 │              │                                          │
 │   Projects   │              Specs                       │

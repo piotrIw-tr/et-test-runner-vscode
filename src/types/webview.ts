@@ -6,6 +6,7 @@ import type { ProjectWithSpecs, SpecEntry, MissingSpecEntry } from './model.js';
 
 export type WebViewMessage =
   | { type: 'ready' }
+  | { type: 'projectsReceived' }
   | { type: 'selectProject'; payload: { projectName: string } }
   | { type: 'toggleSpec'; payload: { specPath: string } }
   | { type: 'selectAllSpecs' }

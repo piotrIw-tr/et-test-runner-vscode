@@ -53,7 +53,7 @@ The header displays comprehensive status information similar to the console app:
 - **Fuzzy Search** - Type `status:fail` or `change:unstaged` to filter
 - **Pinned Specs** - Pin frequently-used specs (★ separated at top)
 - **Performance Tracking** - SLOW and FLAKY badges on specs
-- **Structured Output** - Default view with real-time updates and clickable test names for navigation; toggle to raw for detailed output
+- **Structured Output** - Default view with real-time updates and clickable test names/files for navigation; accurately resolves file paths from loaded specs
 - **Running Overlay** - Shows project name, spec count, and progress during test runs
 - **Duplicate Run Prevention** - Cannot start new tests while tests are running
 - **Startup Loading Screen** - Shows progress during initialization with status updates
@@ -163,7 +163,7 @@ Click a project in the left pane (or first one auto-selects). Projects show:
 Note: Run is disabled for Karma projects (only Jest supported).
 
 ### 4. AI Assistance
-1. **Select AI Target** (optional): Click "Cursor" or "Copilot" button in the header. Click the ⓘ icon for detailed explanation.
+1. **Select AI Target** (optional): Click "Cursor" or "Copilot" pill in the header. Click to select, click again to deselect. Click the `?` icon for help.
 2. Press `Enter` on a spec (or click ✨ button) to open the context menu
 3. **Choose Action**: Fix Errors, Write Tests, or Refactor
    - If AI target selected: Shows generic commands (e.g., "✨ Fix Errors")

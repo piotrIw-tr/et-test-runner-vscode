@@ -31,6 +31,7 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
   private _currentBranch: string = '';
   private _outputBuffer: string[] = [];
   private _disposables: vscode.Disposable[] = [];
+  private _webviewReceivedProjects: boolean = false;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -81,7 +82,21 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
     switch (message.type) {
       case 'ready':
         console.log('[ET Provider] WebView ready, projects stored:', this._projects.length);
-        this.sendInitialState();
+        this._webviewReceivedProjects = false; // Reset flag on new ready signal
+        await this.sendInitialState();
+        // If we already have projects, send them after a small delay to ensure webview is fully ready
+        if (this._projects.length > 0) {
+          console.log('[ET Provider] Scheduling project send to newly ready webview');
+          setTimeout(async () => {
+            console.log('[ET Provider] Sending stored projects to webview');
+            await this.sendProjectsToWebview();
+          }, 100);
+        }
+        break;
+        
+      case 'projectsReceived':
+        console.log('[ET Provider] Webview confirmed projects received');
+        this._webviewReceivedProjects = true;
         break;
 
       case 'selectProject':
@@ -216,6 +231,15 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
             console.error('[ET Provider] openFile: Invalid file path:', filePath);
             break;
           }
+          
+          // Check if file exists first
+          const fs = await import('fs');
+          if (!fs.existsSync(filePath)) {
+            console.warn('[ET Provider] openFile: File does not exist:', filePath);
+            vscode.window.showWarningMessage(`File not found: ${filePath.split('/').pop()}`);
+            break;
+          }
+          
           const uri = vscode.Uri.file(filePath);
           const options: vscode.TextDocumentShowOptions = {};
           
@@ -481,17 +505,40 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
     
     // If view exists, send update; otherwise data will be sent via sendInitialState when view becomes ready
     if (this._view) {
-      // Use async version to include coverage metrics
-      const mappedProjects = await this.mapProjectsToStateAsync();
-      console.log('[ET Provider] Sending updateProjects message with', mappedProjects.length, 'projects');
-      this.postMessage({
-        type: 'updateProjects',
-        payload: { 
-          projects: mappedProjects,
-          branch: this._currentBranch,
-          workspacePath: this._workspaceRoot
+      await this.sendProjectsToWebview();
+    }
+  }
+  
+  private async sendProjectsToWebview(retryCount = 0): Promise<void> {
+    if (!this._view || this._projects.length === 0) return;
+    
+    // If webview already confirmed receipt, don't send again
+    if (this._webviewReceivedProjects && retryCount > 0) {
+      console.log('[ET Provider] Webview already received projects, skipping retry');
+      return;
+    }
+    
+    // Use async version to include coverage metrics
+    const mappedProjects = await this.mapProjectsToStateAsync();
+    console.log('[ET Provider] Sending updateProjects message with', mappedProjects.length, 'projects (attempt', retryCount + 1, ')');
+    
+    this.postMessage({
+      type: 'updateProjects',
+      payload: { 
+        projects: mappedProjects,
+        branch: this._currentBranch,
+        workspacePath: this._workspaceRoot
+      }
+    });
+    
+    // Retry a few times to ensure delivery (webview might not be fully ready)
+    if (retryCount < 3 && !this._webviewReceivedProjects) {
+      setTimeout(() => {
+        if (this._view && this._projects.length > 0 && !this._webviewReceivedProjects) {
+          console.log('[ET Provider] Retry sending updateProjects...');
+          this.sendProjectsToWebview(retryCount + 1);
         }
-      });
+      }, 500 * (retryCount + 1));
     }
   }
 
@@ -533,8 +580,23 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
     this.postMessage({ type: 'hideLoader' });
   }
 
-  private postMessage(message: ExtensionMessage): void {
-    this._view?.webview.postMessage(message);
+  private postMessage(message: ExtensionMessage): boolean {
+    if (!this._view) {
+      console.log('[ET Provider] postMessage: No view available for', message.type);
+      return false;
+    }
+    // Note: postMessage returns Thenable<boolean> indicating if message was delivered
+    this._view.webview.postMessage(message).then(
+      success => {
+        if (!success) {
+          console.log('[ET Provider] postMessage FAILED for', message.type);
+        }
+      },
+      err => {
+        console.log('[ET Provider] postMessage ERROR for', message.type, err);
+      }
+    );
+    return true;
   }
 
   public dispose(): void {

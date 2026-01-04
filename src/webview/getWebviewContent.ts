@@ -81,6 +81,12 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
               <span class="ai-pill-text">Copilot</span>
             </label>
           </div>
+          <span class="ai-help" id="ai-help-icon" title="Select AI assistant for spec actions">?</span>
+          <div class="ai-tooltip" id="ai-tooltip">
+            <strong>AI Assistant</strong><br>
+            Select which AI to use for spec actions like "Fix Spec" or "Write Spec".<br>
+            <em>Click to select, click again to deselect.</em>
+          </div>
         </div>
       </div>
     </header>
@@ -563,6 +569,63 @@ function getStyles(): string {
       background: rgba(138, 43, 226, 0.4);
       color: #e0c0ff;
       font-weight: 500;
+    }
+
+    .ai-help {
+      width: 14px;
+      height: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      color: var(--fg-dimmed);
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 50%;
+      cursor: help;
+      opacity: 0.6;
+      transition: opacity 0.15s;
+    }
+
+    .ai-help:hover {
+      opacity: 1;
+    }
+
+    .ai-tooltip {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 8px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--fg-secondary);
+      width: 220px;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s, visibility 0.15s;
+    }
+
+    .ai-tooltip.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .ai-tooltip strong {
+      color: var(--accent);
+    }
+
+    .ai-tooltip em {
+      color: var(--fg-dimmed);
+      font-size: 10px;
+    }
+
+    .ai-selector {
+      position: relative;
     }
 
     .header-logs {
@@ -2076,9 +2139,14 @@ function getScript(): string {
 
       // Handle messages from extension
       window.addEventListener('message', event => {
-        const message = event.data;
-        console.log('[ET WebView] Received message:', message.type, message.payload);
-        switch (message.type) {
+        try {
+          const message = event.data;
+          console.log('[ET WebView] Received message:', message.type, message.payload);
+          
+          // Update startup log for ANY message to show we're receiving them
+          addStartupLog('MSG: ' + message.type);
+          
+          switch (message.type) {
           case 'initialize':
             console.log('[ET WebView] Initialize with', message.payload?.projects?.length, 'projects');
             const projectCount = message.payload?.projects?.length || 0;
@@ -2097,6 +2165,11 @@ function getScript(): string {
             break;
           case 'updateProjects':
             console.log('[ET WebView] Update projects:', message.payload?.projects?.length);
+            updateStartupStatus('Received ' + (message.payload?.projects?.length || 0) + ' projects!');
+            
+            // Acknowledge receipt to stop retries
+            send('projectsReceived', {});
+            
             hideGlobalLoader(); // Hide loader when projects are updated
             hideStartupLoader(); // Also hide startup loader if still visible
             state.projects = message.payload.projects;
@@ -2147,6 +2220,12 @@ function getScript(): string {
           case 'updateUIState':
             handleUIStateUpdate(message.payload);
             break;
+        }
+        } catch (err) {
+          console.error('[ET WebView] Message handler error:', err);
+          if (typeof addStartupLog === 'function') {
+            addStartupLog('ERROR: ' + (err && err.message ? err.message : String(err)));
+          }
         }
       });
 
@@ -3642,6 +3721,8 @@ function getScript(): string {
       const aiRadioCursor = document.getElementById('ai-radio-cursor');
       const aiRadioCopilot = document.getElementById('ai-radio-copilot');
       const aiPills = document.querySelectorAll('.ai-pill');
+      const aiHelpIcon = document.getElementById('ai-help-icon');
+      const aiTooltip = document.getElementById('ai-tooltip');
       
       function updateAiSelectorUI() {
         aiRadioCursor.checked = state.aiTarget === 'cursor';
@@ -3652,15 +3733,21 @@ function getScript(): string {
       
       // Allow clicking the same pill to deselect
       aiPills.forEach(pill => {
+        const radio = pill.querySelector('input[type="radio"]');
+        
+        // Prevent default radio behavior
+        radio.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        
         pill.addEventListener('click', (e) => {
-          const radio = pill.querySelector('input[type="radio"]');
+          e.preventDefault();
           const value = radio.value;
           
-          // If already selected, deselect
+          // If already selected, deselect; otherwise select
           if (state.aiTarget === value) {
-            e.preventDefault();
             state.aiTarget = null;
-            radio.checked = false;
           } else {
             state.aiTarget = value;
           }
@@ -3668,9 +3755,15 @@ function getScript(): string {
         });
       });
       
-      // No tooltip needed - simplified UI
-      // document.addEventListener('click', (e) => {
-      //   if (!aiTooltip.contains(e.target) && e.target !== aiHelpIcon) {
+      // Help icon tooltip
+      aiHelpIcon.addEventListener('click', (e) => {
+        e.stopPropagation();
+        aiTooltip.classList.toggle('visible');
+      });
+      
+      // Close tooltip when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!aiTooltip.contains(e.target) && e.target !== aiHelpIcon) {
           aiTooltip.classList.remove('visible');
         }
       });
@@ -3758,6 +3851,9 @@ function getScript(): string {
       function resolveStructuredFilePath(relPath) {
         if (!relPath) return null;
         
+        // If already absolute, return as-is
+        if (relPath.startsWith('/')) return relPath;
+        
         // Jest output often includes project name prefix like "project-name libs/path/to/file.ts"
         // and timing info at the end like "(11.028 s)"
         // We need to extract just the actual file path
@@ -3780,13 +3876,22 @@ function getScript(): string {
         
         console.log('[ET WebView] resolveStructuredFilePath:', relPath, '->', cleanPath);
         
-        // If already absolute, return as-is
-        if (cleanPath.startsWith('/')) return cleanPath;
+        // First, try to find matching spec from our loaded data (has correct absolute paths)
+        const fileName = cleanPath.split('/').pop();
+        for (const project of state.projects) {
+          for (const spec of (project.specs || [])) {
+            // Match by filename or by path ending
+            if (spec.absPath && (spec.absPath.endsWith('/' + fileName) || spec.absPath.endsWith(cleanPath))) {
+              console.log('[ET WebView] Found matching spec:', spec.absPath);
+              return spec.absPath;
+            }
+          }
+        }
         
-        // Otherwise, prepend workspace root
+        // Fallback: prepend workspace root
         if (state.config && state.config.workspacePath) {
           const fullPath = state.config.workspacePath + '/' + cleanPath;
-          console.log('[ET WebView] Full path:', fullPath);
+          console.log('[ET WebView] Full path (fallback):', fullPath);
           return fullPath;
         }
         return cleanPath;
