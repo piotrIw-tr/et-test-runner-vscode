@@ -114,6 +114,12 @@ src/
 - Check `project.runner === 'karma'` to disable actions
 - UI shows disabled state for buttons/menu items
 
+### Wrong Workspace Handling
+- Extension checks for `nx.json` on activation
+- If not found, shows "Wrong Workspace" message instead of crashing
+- `webviewProvider.isNotNxWorkspace()` prevents refresh attempts
+- All commands gracefully handle wrong workspace scenario
+
 ### Context Menu Positioning
 - Menu can overflow screen edge
 - Use `Math.min(x, window.innerWidth - menuWidth)` for positioning
@@ -165,6 +171,7 @@ When requesting a feature:
 ### Extension → WebView
 - `initialize` - Initial state (projects, config, branches)
 - `updateProjects` - Refreshed project list
+- `notNxWorkspace` - Shows "Wrong Workspace" message
 - `testOutput` - Streaming test output
 - `testComplete` - Test run finished
 - `showLoader` / `hideLoader` - Global loading overlay

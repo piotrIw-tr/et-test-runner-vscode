@@ -275,6 +275,11 @@ docs/
 
 ## Troubleshooting
 
+### Extension shows "Wrong Workspace"
+- This extension is designed for the **etoro-assets** Nx monorepo
+- Open the correct workspace folder containing `nx.json`
+- The extension checks for `nx.json` in the workspace root or first-level subdirectories
+
 ### Extension doesn't activate
 - Ensure `nx.json` exists in workspace root or a direct subdirectory
 - Check Output → "ET Test Runner" for errors
