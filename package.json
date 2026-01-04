@@ -102,7 +102,7 @@
         {
           "id": "et-test-runner",
           "title": "ET Test Runner",
-          "icon": "resources/icon-alt.svg"
+          "icon": "resources/icon.svg"
         }
       ]
     },
