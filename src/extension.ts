@@ -3,7 +3,7 @@ import path from 'node:path';
 import { ProjectsTreeProvider } from './views/projectsTreeProvider.js';
 import { TestRunnerViewProvider } from './webview/TestRunnerViewProvider.js';
 import { refreshCommand, refreshWebviewCommand } from './commands/refresh.js';
-import { runSelectedCommand, runProjectCommand, runAllCommand, runSpecsFromWebview, runProjectFromWebview, runAllChangedFromWebview } from './commands/runTests.js';
+import { runSelectedCommand, runProjectCommand, runAllCommand, runSpecsFromWebview, runProjectFromWebview, runAllChangedFromWebview, runProjectChangedFromWebview } from './commands/runTests.js';
 import { aiAssistCommand, aiAssistFromWebview } from './commands/aiAssist.js';
 import { createSpecCommand } from './commands/createSpec.js';
 import { WorkspaceCache } from './state/workspaceCache.js';
@@ -138,6 +138,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
     vscode.commands.registerCommand('et-test-runner.runAllChangedFromWebview', async () => {
       await runAllChangedFromWebview(
+        treeProvider,
+        workspaceCache,
+        outputChannel,
+        runningStateManager,
+        webviewProvider,
+        uiStateManager
+      );
+    }),
+
+    vscode.commands.registerCommand('et-test-runner.runProjectChangedFromWebview', async (projectName: string) => {
+      await runProjectChangedFromWebview(
+        projectName,
         treeProvider,
         workspaceCache,
         outputChannel,

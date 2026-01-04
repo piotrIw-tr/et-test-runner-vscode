@@ -300,6 +300,66 @@ export async function runAllChangedFromWebview(
   }
 }
 
+export async function runProjectChangedFromWebview(
+  projectName: string,
+  treeProvider: ProjectsTreeProvider,
+  cache: WorkspaceCache,
+  outputChannel: vscode.OutputChannel,
+  runningState: RunningStateManager,
+  webviewProvider: TestRunnerViewProvider,
+  uiState: UIStateManager
+): Promise<void> {
+  // Prevent running if already running
+  if (runningState.isRunning) {
+    vscode.window.showWarningMessage('Tests are already running. Please wait or cancel the current run.');
+    return;
+  }
+  
+  const workspaceRoot = treeProvider.getWorkspaceRoot();
+  if (!workspaceRoot) {
+    vscode.window.showErrorMessage('No workspace root found');
+    return;
+  }
+
+  // Find the project
+  const projects = treeProvider.getProjects();
+  const project = projects.find(p => p.name === projectName);
+  
+  if (!project) {
+    vscode.window.showErrorMessage(`Project "${projectName}" not found`);
+    return;
+  }
+  
+  if (project.runner !== 'jest') {
+    vscode.window.showWarningMessage(`Project "${projectName}" uses ${project.runner}, not Jest. Only Jest projects are supported.`);
+    return;
+  }
+
+  // Get only changed specs (status !== 'R' means the spec file itself was changed)
+  const changedSpecs = project.specs
+    .filter(spec => spec.status !== 'R')
+    .map(spec => spec.absPath);
+  
+  if (changedSpecs.length === 0) {
+    vscode.window.showInformationMessage(`No changed specs found for project ${projectName}`);
+    return;
+  }
+
+  webviewProvider.addLog('info', `Running ${changedSpecs.length} changed specs in project ${projectName}`);
+
+  await runTestsWithWebview(
+    workspaceRoot,
+    projectName,
+    changedSpecs,
+    treeProvider,
+    cache,
+    outputChannel,
+    runningState,
+    webviewProvider,
+    uiState
+  );
+}
+
 async function runTests(
   workspaceRoot: string,
   projectName: string,

@@ -126,6 +126,13 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
         await vscode.commands.executeCommand('et-test-runner.runAllChangedFromWebview');
         break;
 
+      case 'runProjectChanged':
+        await vscode.commands.executeCommand(
+          'et-test-runner.runProjectChangedFromWebview',
+          message.payload.projectName
+        );
+        break;
+
       case 'rerunFailed':
         const failed = this.runningState.lastFailedSpecs;
         if (failed.length > 0) {
