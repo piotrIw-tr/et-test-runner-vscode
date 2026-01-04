@@ -2608,7 +2608,7 @@ function getScript(): string {
             });
           }
 
-          el.addEventListener('click', () => {
+          el.addEventListener('click', (e) => {
             // Set focus to this spec and focus the specs pane
             focusedSpecIndex = idx;
             highlightFocusedSpec();
@@ -2616,10 +2616,8 @@ function getScript(): string {
             currentPane = 'specs';
             Object.values(paneElements).forEach(p => p.classList.remove('focused-pane'));
             paneElements['specs']?.classList.add('focused-pane');
-            // Only allow selection for Jest projects
-            if (isCurrentProjectJest()) {
-              send('toggleSpec', { specPath });
-            }
+            // Don't toggle selection on click - use Space or checkbox for that
+            // This allows clicking to focus without changing selection
           });
 
           el.addEventListener('dblclick', () => {
