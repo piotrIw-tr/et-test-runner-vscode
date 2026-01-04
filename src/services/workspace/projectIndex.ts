@@ -90,50 +90,93 @@ export async function indexProjects(workspaceRoot: string, log?: (msg: string) =
   const nxProjects = await tryNxShowProjects(workspaceRoot, logFn);
   
   if (nxProjects && nxProjects.length > 0) {
-    // Use Nx project list to find project.json files directly
+    // Use 'nx show project <name> --json' to get exact project roots
+    // This is more reliable than guessing paths
     logFn(`[TIMING] Using Nx project list to find project.json files...`);
     const findStart = Date.now();
     
     const projects: ProjectInfo[] = [];
+    let foundViaShow = 0;
+    let foundViaGuess = 0;
     
-    // Try common project locations based on Nx conventions
-    const projectPromises = nxProjects.map(async (projectName) => {
-      // Try libs/ and apps/ directories
-      const possiblePaths = [
-        path.join(workspaceRoot, 'libs', projectName),
-        path.join(workspaceRoot, 'apps', projectName),
-        // Handle scoped projects like @scope/project -> libs/scope/project
-        path.join(workspaceRoot, 'libs', ...projectName.replace('@', '').split('/')),
-        path.join(workspaceRoot, 'apps', ...projectName.replace('@', '').split('/')),
-      ];
+    // Process projects in batches to avoid too many concurrent processes
+    const batchSize = 20;
+    for (let i = 0; i < nxProjects.length; i += batchSize) {
+      const batch = nxProjects.slice(i, i + batchSize);
       
-      for (const projectRoot of possiblePaths) {
-        const projectJsonPath = path.join(projectRoot, 'project.json');
+      const projectPromises = batch.map(async (projectName) => {
+        // First try common paths (fast)
+        const possiblePaths = [
+          path.join(workspaceRoot, 'libs', projectName),
+          path.join(workspaceRoot, 'apps', projectName),
+          // Handle hyphenated names that might be nested: wallet-dashboard -> wallet/dashboard
+          path.join(workspaceRoot, 'libs', ...projectName.split('-')),
+          path.join(workspaceRoot, 'apps', ...projectName.split('-')),
+          // Handle scoped projects like @scope/project -> libs/scope/project
+          path.join(workspaceRoot, 'libs', ...projectName.replace('@', '').split('/')),
+          path.join(workspaceRoot, 'apps', ...projectName.replace('@', '').split('/')),
+        ];
+        
+        for (const projectRoot of possiblePaths) {
+          const projectJsonPath = path.join(projectRoot, 'project.json');
+          try {
+            await fs.access(projectJsonPath);
+            const info = await readProjectJson(projectRoot);
+            if (info && info.name === projectName) {
+              foundViaGuess++;
+              return {
+                name: info.name,
+                projectJsonPath,
+                rootAbs: projectRoot,
+                sourceRootAbs: info.sourceRootAbs,
+                runner: info.runner,
+              };
+            }
+          } catch {
+            // Path doesn't exist, try next
+          }
+        }
+        
+        // If guessing failed, try 'nx show project <name> --json' to get the exact root
         try {
-          await fs.access(projectJsonPath);
-          const info = await readProjectJson(projectRoot);
-          if (info) {
-            return {
-              name: info.name,
-              projectJsonPath,
-              rootAbs: projectRoot,
-              sourceRootAbs: info.sourceRootAbs,
-              runner: info.runner,
-            };
+          const result = await execa('npx', ['nx', 'show', 'project', projectName, '--json'], {
+            cwd: workspaceRoot,
+            timeout: 5000,
+            reject: false
+          });
+          
+          if (result.exitCode === 0 && result.stdout) {
+            const projectInfo = JSON.parse(result.stdout);
+            if (projectInfo.root) {
+              const projectRoot = path.join(workspaceRoot, projectInfo.root);
+              const projectJsonPath = path.join(projectRoot, 'project.json');
+              const testExecutor = projectInfo.targets?.test?.executor;
+              const runner = runnerFromExecutor(testExecutor);
+              
+              foundViaShow++;
+              return {
+                name: projectName,
+                projectJsonPath,
+                rootAbs: projectRoot,
+                sourceRootAbs: projectInfo.sourceRoot ? path.join(workspaceRoot, projectInfo.sourceRoot) : undefined,
+                runner,
+              };
+            }
           }
         } catch {
-          // Path doesn't exist, try next
+          // Failed to get project info
         }
+        
+        return null;
+      });
+      
+      const results = await Promise.all(projectPromises);
+      for (const result of results) {
+        if (result) projects.push(result);
       }
-      return null;
-    });
-    
-    const results = await Promise.all(projectPromises);
-    for (const result of results) {
-      if (result) projects.push(result);
     }
     
-    logFn(`[TIMING] Found ${projects.length} projects from Nx list in ${Date.now() - findStart}ms`);
+    logFn(`[TIMING] Found ${projects.length} projects (${foundViaGuess} guessed, ${foundViaShow} via nx show) in ${Date.now() - findStart}ms`);
     projects.sort((a, b) => a.name.localeCompare(b.name));
     logFn(`[TIMING] indexProjects TOTAL: ${Date.now() - startTime}ms`);
     return projects;
