@@ -44,15 +44,17 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
   </div>
   
   <div id="app">
-    <!-- Header Bar - 2 lines like console app -->
+    <!-- Header Bar - 3 lines -->
     <header id="header-bar">
-      <!-- Line 1: Status, Project, Cache, Logs -->
+      <!-- Line 1: Status, Base, Branch -->
       <div class="header-line">
         <span id="status-text" class="header-status">Ready</span>
         <span class="header-separator">│</span>
-        <span id="project-info" class="header-info"></span>
+        <span class="header-label">Base:</span>
+        <span id="base-ref" class="header-value"></span>
         <span class="header-separator">│</span>
-        <span id="cache-info" class="header-info"></span>
+        <span class="header-label">Branch:</span>
+        <span id="branch-info" class="header-value"></span>
         <div class="header-spacer"></div>
         <div id="progress-container" class="header-progress" style="display: none;">
           <div class="progress-bar">
@@ -62,22 +64,25 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         </div>
         <span id="running-indicator" class="header-running" style="display: none;">⏳ RUNNING</span>
       </div>
-      <!-- Line 2: Base, Branch, Path, AI -->
+      <!-- Line 2: Path -->
       <div class="header-line header-line-secondary">
-        <span class="header-label">Base:</span>
-        <span id="base-ref" class="header-value"></span>
-        <span class="header-separator">│</span>
-        <span class="header-label">Branch:</span>
-        <span id="branch-info" class="header-value"></span>
-        <span class="header-separator">│</span>
         <span class="header-label">Path:</span>
         <span id="workspace-path" class="header-value header-path"></span>
-        <div class="header-spacer"></div>
-        <div class="ai-selector" id="ai-selector">
-          <span class="ai-label">AI:</span>
-          <button class="ai-btn" data-ai="cursor" id="ai-btn-cursor">Cursor</button>
-          <button class="ai-btn" data-ai="copilot" id="ai-btn-copilot">Copilot</button>
-          <span class="ai-help" id="ai-help-icon">ⓘ</span>
+      </div>
+      <!-- AI Assistant Panel (toggleable) -->
+      <div class="ai-panel" id="ai-panel">
+        <button class="ai-panel-toggle" id="ai-panel-toggle">
+          <span class="ai-panel-icon">✨</span>
+          <span class="ai-panel-title">AI Assistant</span>
+          <span class="ai-panel-chevron" id="ai-panel-chevron">▼</span>
+        </button>
+        <div class="ai-panel-content" id="ai-panel-content">
+          <div class="ai-selector" id="ai-selector">
+            <span class="ai-label">Select AI:</span>
+            <button class="ai-btn" data-ai="cursor" id="ai-btn-cursor">Cursor</button>
+            <button class="ai-btn" data-ai="copilot" id="ai-btn-copilot">Copilot</button>
+            <span class="ai-help" id="ai-help-icon">ⓘ</span>
+          </div>
           <div class="ai-tooltip" id="ai-tooltip">
             <strong>AI Target Selection</strong><br>
             Select your preferred AI assistant. When selected, the spec context menu will show simplified AI commands.<br><br>
@@ -87,6 +92,9 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         </div>
       </div>
     </header>
+    <!-- Hidden elements for backward compatibility -->
+    <span id="project-info" style="display:none;"></span>
+    <span id="cache-info" style="display:none;"></span>
 
     <!-- Main Content Area -->
     <main id="main-content">
@@ -100,6 +108,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         <div class="pane-commands">
           <span class="cmd"><kbd>↑/↓</kbd> nav</span>
           <span class="cmd"><kbd>Enter</kbd> menu</span>
+          <span class="cmd"><kbd>⇧R</kbd> run listed</span>
           <span class="cmd"><kbd>⇧A</kbd> run all</span>
         </div>
         <div class="pane-content" id="projects-list">
@@ -502,10 +511,121 @@ function getStyles(): string {
 
     .header-path {
       color: var(--fg-dimmed);
-      max-width: 400px;
+      max-width: 600px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    /* AI Panel */
+    .ai-panel {
+      margin-top: 4px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, rgba(138, 43, 226, 0.15), rgba(75, 0, 130, 0.1));
+      border: 1px solid rgba(138, 43, 226, 0.3);
+      overflow: hidden;
+    }
+
+    .ai-panel-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      padding: 6px 10px;
+      background: transparent;
+      border: none;
+      color: var(--fg-primary);
+      font-size: 11px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .ai-panel-toggle:hover {
+      background: rgba(138, 43, 226, 0.1);
+    }
+
+    .ai-panel-icon {
+      font-size: 14px;
+    }
+
+    .ai-panel-title {
+      font-weight: 600;
+      color: #b388ff;
+    }
+
+    .ai-panel-chevron {
+      margin-left: auto;
+      font-size: 10px;
+      color: var(--fg-muted);
+      transition: transform 0.2s;
+    }
+
+    .ai-panel.collapsed .ai-panel-chevron {
+      transform: rotate(-90deg);
+    }
+
+    .ai-panel-content {
+      padding: 8px 10px;
+      border-top: 1px solid rgba(138, 43, 226, 0.2);
+    }
+
+    .ai-panel.collapsed .ai-panel-content {
+      display: none;
+    }
+
+    .ai-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ai-label {
+      color: var(--fg-muted);
+      font-size: 11px;
+    }
+
+    .ai-btn {
+      padding: 4px 12px;
+      border: 1px solid rgba(138, 43, 226, 0.4);
+      border-radius: 4px;
+      background: rgba(138, 43, 226, 0.1);
+      color: var(--fg-secondary);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .ai-btn:hover {
+      background: rgba(138, 43, 226, 0.2);
+      border-color: rgba(138, 43, 226, 0.6);
+    }
+
+    .ai-btn.active {
+      background: rgba(138, 43, 226, 0.4);
+      border-color: #b388ff;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .ai-help {
+      color: var(--fg-muted);
+      cursor: help;
+      font-size: 12px;
+    }
+
+    .ai-tooltip {
+      display: none;
+      margin-top: 8px;
+      padding: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      font-size: 10px;
+      color: var(--fg-muted);
+      line-height: 1.4;
+    }
+
+    .ai-tooltip.visible {
+      display: block;
     }
 
     .header-logs {
@@ -3142,8 +3262,8 @@ function getScript(): string {
               }
             }
             e.preventDefault();
-          } else if (e.key === 'A' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
-            // Shift+A: Run all specs in focused project (only if jest and not running)
+          } else if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+            // Shift+R: Run listed specs in focused project (only if jest and not running)
             if (!state.runningState.isRunning) {
               const focused = getFocusedProject();
               if (focused && focused.runner === 'jest') {
@@ -3151,10 +3271,13 @@ function getScript(): string {
               }
             }
             e.preventDefault();
-          } else if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
-            // Shift+R: Run only changed specs (not while running)
+          } else if (e.key === 'A' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+            // Shift+A: Run ALL specs in focused project (scan with glob, not while running)
             if (!state.runningState.isRunning) {
-              send('runAllChanged');
+              const focused = getFocusedProject();
+              if (focused && focused.runner === 'jest') {
+                send('runAllProjectSpecs', { projectName: focused.name });
+              }
             }
             e.preventDefault();
           }
@@ -3192,9 +3315,9 @@ function getScript(): string {
             }
             e.preventDefault();
           } else if (e.key === 'A' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
-            // Shift+A: Run all specs in current project (Jest only, not while running)
+            // Shift+A: Run ALL specs in current project (Jest only, not while running)
             if (!state.runningState.isRunning && state.selectedProject && isCurrentProjectJest()) {
-              send('runProject', { projectName: state.selectedProject });
+              send('runAllProjectSpecs', { projectName: state.selectedProject });
             }
             e.preventDefault();
           } else if (e.key === 'o' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
@@ -3577,6 +3700,17 @@ function getScript(): string {
           hideContextMenu();
         });
       });
+      
+      // AI Panel toggle
+      const aiPanel = document.getElementById('ai-panel');
+      const aiPanelToggle = document.getElementById('ai-panel-toggle');
+      
+      aiPanelToggle.addEventListener('click', () => {
+        aiPanel.classList.toggle('collapsed');
+      });
+      
+      // Start collapsed by default
+      aiPanel.classList.add('collapsed');
       
       // AI selector in header
       const aiBtnCursor = document.getElementById('ai-btn-cursor');
