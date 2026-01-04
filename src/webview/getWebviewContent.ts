@@ -16,18 +16,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
   </style>
 </head>
 <body>
-  <!-- Initialization Loading Screen (shown during extension startup) - MUST BE FIRST -->
-  <div id="init-loader" style="position:absolute;top:0;left:0;width:100%;height:100%;background:#1e1e1e;display:flex;align-items:center;justify-content:center;z-index:10000;">
-    <div style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:32px;background:#252526;border-radius:12px;border:1px solid #3c3c3c;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
-      <div style="font-size:48px;">🧪</div>
-      <div style="font-size:24px;font-weight:600;color:#e0e0e0;">ET Test Runner</div>
-      <div id="init-spinner" style="width:40px;height:40px;border:3px solid #3c3c3c;border-top-color:#007acc;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-      <div id="init-status" style="font-size:14px;color:#cccccc;text-align:center;">Initializing...</div>
-      <div id="init-logs" style="width:280px;max-height:150px;overflow-y:auto;font-family:monospace;font-size:11px;color:#a0a0a0;background:#1e1e1e;border-radius:6px;padding:8px 12px;border:1px solid #3c3c3c;"></div>
-    </div>
-  </div>
-  <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
-
   <!-- Global Loading Overlay (for test runs) -->
   <div id="global-loader" class="global-loader">
     <div class="global-loader-content">
@@ -99,7 +87,13 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
           <span class="cmd"><kbd>Enter</kbd> menu</span>
           <span class="cmd"><kbd>⇧A</kbd> run all</span>
         </div>
-        <div class="pane-content" id="projects-list"></div>
+        <div class="pane-content" id="projects-list">
+          <div class="loading-state" id="projects-loading">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading projects...</div>
+            <div class="loading-subtext">Scanning for changes in your workspace</div>
+          </div>
+        </div>
       </aside>
 
       <!-- Specs Pane -->
@@ -1820,110 +1814,6 @@ function getStyles(): string {
       display: none;
     }
 
-    /* Initialization Loading Screen */
-    .init-loader {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: #1e1e1e;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10000;
-      transition: opacity 0.3s ease;
-    }
-
-    .init-loader.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .init-loader-content {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-      max-width: 400px;
-      padding: 32px;
-      background: #252526;
-      border-radius: 12px;
-      border: 1px solid #3c3c3c;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    }
-
-    .init-loader-logo {
-      font-size: 48px;
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.1); opacity: 0.8; }
-    }
-
-    .init-loader-title {
-      font-size: 24px;
-      font-weight: 600;
-      color: #e0e0e0;
-      letter-spacing: 0.5px;
-    }
-
-    .init-loader-spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid #3c3c3c;
-      border-top-color: #007acc;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    .init-loader-status {
-      font-size: 14px;
-      color: #cccccc;
-      text-align: center;
-    }
-
-    .init-loader-logs {
-      width: 100%;
-      max-height: 150px;
-      overflow-y: auto;
-      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-      font-size: 11px;
-      color: #a0a0a0;
-      background: #1e1e1e;
-      border-radius: 6px;
-      padding: 8px 12px;
-      margin-top: 8px;
-      border: 1px solid #3c3c3c;
-    }
-
-    .init-loader-logs:empty {
-      display: none;
-    }
-
-    .init-log-entry {
-      padding: 2px 0;
-      border-bottom: 1px solid #333;
-    }
-
-    .init-log-entry:last-child {
-      border-bottom: none;
-    }
-
-    .init-log-entry.success {
-      color: #4ec9b0;
-    }
-
-    .init-log-entry.error {
-      color: #f14c4c;
-    }
-
-    .init-log-entry.info {
-      color: #a0a0a0;
-    }
-
     /* Spinner */
     @keyframes spin {
       to { transform: rotate(360deg); }
@@ -1944,6 +1834,37 @@ function getStyles(): string {
       padding: 20px;
       text-align: center;
       color: var(--fg-muted);
+    }
+
+    /* Loading State */
+    .loading-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      gap: 12px;
+    }
+
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border-color);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .loading-text {
+      font-size: 14px;
+      color: var(--fg-primary);
+      font-weight: 500;
+    }
+
+    .loading-subtext {
+      font-size: 12px;
+      color: var(--fg-muted);
+      text-align: center;
     }
   `;
 }
@@ -2026,42 +1947,6 @@ function getScript(): string {
         vscode.postMessage({ type, payload });
       }
 
-      // Init Loader Management
-      const initLoader = document.getElementById('init-loader');
-      const initStatus = document.getElementById('init-status');
-      const initLogs = document.getElementById('init-logs');
-      let initStartTime = Date.now();
-
-      function updateInitStatus(text) {
-        if (initStatus) {
-          initStatus.textContent = text;
-        }
-      }
-
-      function addInitLog(text, type = 'info') {
-        if (initLogs) {
-          const entry = document.createElement('div');
-          entry.className = 'init-log-entry ' + type;
-          const elapsed = ((Date.now() - initStartTime) / 1000).toFixed(1);
-          entry.textContent = '[' + elapsed + 's] ' + text;
-          initLogs.appendChild(entry);
-          initLogs.scrollTop = initLogs.scrollHeight;
-        }
-      }
-
-      function hideInitLoader() {
-        if (initLoader) {
-          initLoader.classList.add('hidden');
-          setTimeout(() => {
-            initLoader.style.display = 'none';
-          }, 300);
-        }
-      }
-
-      // Start showing init progress
-      addInitLog('Extension loaded, waiting for data...');
-      updateInitStatus('Connecting to extension...');
-
       // Handle messages from extension
       window.addEventListener('message', event => {
         const message = event.data;
@@ -2121,28 +2006,14 @@ function getScript(): string {
           case 'updateUIState':
             handleUIStateUpdate(message.payload);
             break;
-          case 'initProgress':
-            // Show loading progress during extension initialization
-            if (message.payload.status) {
-              updateInitStatus(message.payload.status);
-            }
-            if (message.payload.log) {
-              addInitLog(message.payload.log, message.payload.logType || 'info');
-            }
-            break;
         }
       });
 
       function handleInitialize(payload) {
         if (!payload) {
           console.error('[ET WebView] handleInitialize: No payload received');
-          addInitLog('Error: No payload received', 'error');
-          updateInitStatus('Initialization failed');
           return;
         }
-        
-        addInitLog('Received initialization data', 'success');
-        updateInitStatus('Processing projects...');
         
         state.projects = payload.projects || [];
         
@@ -2160,31 +2031,12 @@ function getScript(): string {
           elements.baseRef.textContent = payload.config.baseRef || 'origin/main';
           elements.branchInfo.textContent = payload.config.branch || '';
           elements.workspacePath.textContent = payload.config.workspacePath || '';
-          addInitLog('Workspace: ' + (payload.config.workspacePath || 'unknown'));
-          addInitLog('Branch: ' + (payload.config.branch || 'unknown'));
         }
-
-        const jestCount = state.projects.filter(p => p.runner === 'jest').length;
-        const karmaCount = state.projects.filter(p => p.runner !== 'jest').length;
-        addInitLog('Found ' + jestCount + ' Jest projects, ' + karmaCount + ' Karma projects', 'success');
-        
-        let totalSpecs = 0;
-        state.projects.forEach(p => totalSpecs += (p.specs?.length || 0));
-        addInitLog('Total specs with changes: ' + totalSpecs);
 
         console.log('[ET WebView] Initialized with', state.projects.length, 'projects');
         
-        updateInitStatus('Rendering UI...');
         renderAll();
         updateHeader();
-        
-        addInitLog('Ready!', 'success');
-        updateInitStatus('Complete');
-        
-        // Hide init loader after a short delay
-        setTimeout(() => {
-          hideInitLoader();
-        }, 500);
       }
 
       function handleUIStateUpdate(uiState) {
