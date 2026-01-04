@@ -73,9 +73,21 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     // Core commands
     vscode.commands.registerCommand('et-test-runner.refresh', async () => {
+      // Check if this is a valid Nx workspace first
+      if (webviewProvider.isNotNxWorkspace()) {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        outputChannel.appendLine('Refresh blocked - not an Nx workspace');
+        vscode.window.showWarningMessage('ET Test Runner requires an Nx workspace (e.g., etoro-assets)');
+        webviewProvider.showNotNxWorkspace(workspaceFolder || 'No workspace');
+        return;
+      }
+      
       webviewProvider.showLoader('Refreshing workspace...');
       try {
         await refreshAll(treeProvider, webviewProvider, outputChannel);
+      } catch (error) {
+        outputChannel.appendLine(`Refresh error: ${error}`);
+        vscode.window.showErrorMessage(`Refresh failed: ${error}`);
       } finally {
         webviewProvider.hideLoader();
       }
@@ -83,6 +95,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Internal refresh without showing loader (used when caller manages loader)
     vscode.commands.registerCommand('et-test-runner.refreshInternal', async () => {
+      if (webviewProvider.isNotNxWorkspace()) return;
       await refreshAll(treeProvider, webviewProvider, outputChannel);
     }),
 
@@ -270,14 +283,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Check if this is a valid Nx workspace before loading
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  const isNxWorkspace = await checkNxWorkspace(workspaceFolder);
+  const nxWorkspacePath = await checkNxWorkspace(workspaceFolder);
   
-  if (!isNxWorkspace) {
+  if (!nxWorkspacePath) {
     outputChannel.appendLine('Not an Nx workspace - extension will remain inactive');
+    outputChannel.appendLine(`Opened folder: ${workspaceFolder || 'None'}`);
+    outputChannel.appendLine('Expected: An Nx monorepo with nx.json (e.g., etoro-assets)');
     webviewProvider.addLog('warn', 'Not an Nx workspace');
     webviewProvider.showNotNxWorkspace(workspaceFolder || 'No workspace');
     return;
   }
+  
+  outputChannel.appendLine(`Nx workspace found: ${nxWorkspacePath}`);
   
   // Initial load - run in background to not block extension activation
   // This allows the webview to show immediately with a loading state
@@ -386,17 +403,18 @@ export function deactivate() {
 
 /**
  * Check if the given path (or subdirectory) contains nx.json
+ * Returns the path to the nx workspace if found, or null if not found
  */
-async function checkNxWorkspace(workspacePath: string | undefined): Promise<boolean> {
-  if (!workspacePath) return false;
+async function checkNxWorkspace(workspacePath: string | undefined): Promise<string | null> {
+  if (!workspacePath) return null;
   
   try {
     // Check root
     const rootNxJson = vscode.Uri.file(path.join(workspacePath, 'nx.json'));
     await vscode.workspace.fs.stat(rootNxJson);
-    return true;
+    return workspacePath;
   } catch {
-    // Check first-level subdirectories
+    // Check first-level subdirectories (e.g., etoro-assets inside a parent folder)
     try {
       const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(workspacePath));
       for (const [name, type] of entries) {
@@ -404,7 +422,7 @@ async function checkNxWorkspace(workspacePath: string | undefined): Promise<bool
           try {
             const subNxJson = vscode.Uri.file(path.join(workspacePath, name, 'nx.json'));
             await vscode.workspace.fs.stat(subNxJson);
-            return true;
+            return path.join(workspacePath, name);
           } catch {
             // Continue checking other directories
           }
@@ -415,5 +433,5 @@ async function checkNxWorkspace(workspacePath: string | undefined): Promise<bool
     }
   }
   
-  return false;
+  return null;
 }

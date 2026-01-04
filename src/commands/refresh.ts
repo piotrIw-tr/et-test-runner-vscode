@@ -12,7 +12,16 @@ export async function refreshAll(
   outputChannel: vscode.OutputChannel
 ): Promise<void> {
   const vsCodeWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!vsCodeWorkspace) return;
+  if (!vsCodeWorkspace) {
+    outputChannel.appendLine('No workspace folder open');
+    return;
+  }
+
+  // Check if we're already marked as not an Nx workspace
+  if (webviewProvider.isNotNxWorkspace()) {
+    outputChannel.appendLine('Skipping refresh - not an Nx workspace');
+    return;
+  }
 
   const startTime = Date.now();
   outputChannel.appendLine('Refreshing workspace (combined)...');

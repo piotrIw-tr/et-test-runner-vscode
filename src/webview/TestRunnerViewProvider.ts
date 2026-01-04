@@ -32,6 +32,7 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
   private _outputBuffer: string[] = [];
   private _disposables: vscode.Disposable[] = [];
   private _webviewReceivedProjects: boolean = false;
+  private _notNxWorkspacePath?: string; // Set if opened in wrong workspace
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -83,6 +84,14 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
       case 'ready':
         console.log('[ET Provider] WebView ready, projects stored:', this._projects.length);
         this._webviewReceivedProjects = false; // Reset flag on new ready signal
+        
+        // If this is not an Nx workspace, show the message immediately
+        if (this._notNxWorkspacePath) {
+          console.log('[ET Provider] Sending notNxWorkspace message');
+          this.postMessage({ type: 'notNxWorkspace', payload: { workspacePath: this._notNxWorkspacePath } });
+          break;
+        }
+        
         await this.sendInitialState();
         // If we already have projects, send them after a small delay to ensure webview is fully ready
         if (this._projects.length > 0) {
@@ -581,7 +590,13 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
   }
 
   public showNotNxWorkspace(workspacePath: string): void {
+    // Store for when webview becomes ready
+    this._notNxWorkspacePath = workspacePath;
     this.postMessage({ type: 'notNxWorkspace', payload: { workspacePath } });
+  }
+  
+  public isNotNxWorkspace(): boolean {
+    return this._notNxWorkspacePath !== undefined;
   }
 
   private postMessage(message: ExtensionMessage): boolean {
