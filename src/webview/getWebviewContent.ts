@@ -64,18 +64,24 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         </div>
         <span id="running-indicator" class="header-running" style="display: none;">⏳ RUNNING</span>
       </div>
-      <!-- Line 2: Path -->
+      <!-- Line 2: Path + AI selector -->
       <div class="header-line header-line-secondary">
         <span class="header-label">Path:</span>
         <span id="workspace-path" class="header-value header-path"></span>
-      </div>
-      <!-- Line 3: AI selector (subtle) -->
-      <div class="header-line header-line-ai">
-        <span class="ai-icon">✨</span>
-        <span class="ai-label">AI:</span>
-        <button class="ai-toggle-btn" data-ai="cursor" id="ai-btn-cursor">Cursor</button>
-        <button class="ai-toggle-btn" data-ai="copilot" id="ai-btn-copilot">Copilot</button>
-        <span class="ai-help" id="ai-help-icon" title="Select AI target for context menu actions">ⓘ</span>
+        <div class="header-spacer"></div>
+        <div class="ai-selector" id="ai-selector">
+          <span class="ai-selector-label">✨ AI</span>
+          <div class="ai-pills">
+            <label class="ai-pill" data-ai="cursor">
+              <input type="radio" name="ai-target" value="cursor" id="ai-radio-cursor" />
+              <span class="ai-pill-text">Cursor</span>
+            </label>
+            <label class="ai-pill" data-ai="copilot">
+              <input type="radio" name="ai-target" value="copilot" id="ai-radio-copilot" />
+              <span class="ai-pill-text">Copilot</span>
+            </label>
+          </div>
+        </div>
       </div>
     </header>
     <!-- Hidden elements for backward compatibility -->
@@ -503,52 +509,60 @@ function getStyles(): string {
       white-space: nowrap;
     }
 
-    /* AI Selector (subtle inline) */
-    .header-line-ai {
-      padding-top: 4px;
-      border-top: 1px solid var(--border-color);
-      margin-top: 4px;
+    /* AI Selector - pill style */
+    .ai-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 8px;
+      background: rgba(138, 43, 226, 0.08);
+      border-radius: 6px;
+      border: 1px solid rgba(138, 43, 226, 0.15);
     }
 
-    .ai-icon {
-      font-size: 12px;
-      margin-right: 2px;
-    }
-
-    .ai-label {
-      color: var(--fg-muted);
-      font-size: 11px;
-      margin-right: 6px;
-    }
-
-    .ai-toggle-btn {
-      padding: 2px 10px;
-      border: 1px solid var(--border-color);
-      border-radius: 3px;
-      background: transparent;
-      color: var(--fg-muted);
+    .ai-selector-label {
       font-size: 10px;
+      color: rgba(179, 136, 255, 0.8);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .ai-pills {
+      display: flex;
+      gap: 2px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      padding: 2px;
+    }
+
+    .ai-pill {
+      display: flex;
+      align-items: center;
       cursor: pointer;
+    }
+
+    .ai-pill input[type="radio"] {
+      display: none;
+    }
+
+    .ai-pill-text {
+      padding: 2px 10px;
+      font-size: 10px;
+      color: var(--fg-muted);
+      border-radius: 3px;
       transition: all 0.15s;
-      margin-right: 4px;
+      user-select: none;
     }
 
-    .ai-toggle-btn:hover {
-      background: var(--bg-tertiary);
+    .ai-pill:hover .ai-pill-text {
       color: var(--fg-secondary);
+      background: rgba(255, 255, 255, 0.05);
     }
 
-    .ai-toggle-btn.active {
-      background: rgba(138, 43, 226, 0.3);
-      border-color: rgba(138, 43, 226, 0.5);
-      color: #b388ff;
-    }
-
-    .ai-help {
-      color: var(--fg-dimmed);
-      cursor: help;
-      font-size: 11px;
-      margin-left: 4px;
+    .ai-pill input[type="radio"]:checked + .ai-pill-text {
+      background: rgba(138, 43, 226, 0.4);
+      color: #e0c0ff;
+      font-weight: 500;
     }
 
     .header-logs {
@@ -3624,40 +3638,39 @@ function getScript(): string {
         });
       });
       
-      // AI selector in header
-      const aiBtnCursor = document.getElementById('ai-btn-cursor');
-      const aiBtnCopilot = document.getElementById('ai-btn-copilot');
-      const aiHelpIcon = document.getElementById('ai-help-icon');
-      const aiTooltip = document.getElementById('ai-tooltip');
+      // AI selector in header (pill-style radio buttons with deselect)
+      const aiRadioCursor = document.getElementById('ai-radio-cursor');
+      const aiRadioCopilot = document.getElementById('ai-radio-copilot');
+      const aiPills = document.querySelectorAll('.ai-pill');
       
       function updateAiSelectorUI() {
-        aiBtnCursor.classList.toggle('active', state.aiTarget === 'cursor');
-        aiBtnCopilot.classList.toggle('active', state.aiTarget === 'copilot');
+        aiRadioCursor.checked = state.aiTarget === 'cursor';
+        aiRadioCopilot.checked = state.aiTarget === 'copilot';
         // Update context menu visibility
         contextMenu.classList.toggle('ai-selected', state.aiTarget !== null);
       }
       
-      aiBtnCursor.addEventListener('click', () => {
-        state.aiTarget = state.aiTarget === 'cursor' ? null : 'cursor';
-        updateAiSelectorUI();
-        aiTooltip.classList.remove('visible'); // Hide tooltip when selecting
+      // Allow clicking the same pill to deselect
+      aiPills.forEach(pill => {
+        pill.addEventListener('click', (e) => {
+          const radio = pill.querySelector('input[type="radio"]');
+          const value = radio.value;
+          
+          // If already selected, deselect
+          if (state.aiTarget === value) {
+            e.preventDefault();
+            state.aiTarget = null;
+            radio.checked = false;
+          } else {
+            state.aiTarget = value;
+          }
+          updateAiSelectorUI();
+        });
       });
       
-      aiBtnCopilot.addEventListener('click', () => {
-        state.aiTarget = state.aiTarget === 'copilot' ? null : 'copilot';
-        updateAiSelectorUI();
-        aiTooltip.classList.remove('visible'); // Hide tooltip when selecting
-      });
-      
-      // AI help tooltip - click to toggle
-      aiHelpIcon.addEventListener('click', (e) => {
-        e.stopPropagation();
-        aiTooltip.classList.toggle('visible');
-      });
-      
-      // Close tooltip when clicking elsewhere
-      document.addEventListener('click', (e) => {
-        if (!aiTooltip.contains(e.target) && e.target !== aiHelpIcon) {
+      // No tooltip needed - simplified UI
+      // document.addEventListener('click', (e) => {
+      //   if (!aiTooltip.contains(e.target) && e.target !== aiHelpIcon) {
           aiTooltip.classList.remove('visible');
         }
       });
