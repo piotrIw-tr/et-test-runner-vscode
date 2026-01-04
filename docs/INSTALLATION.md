@@ -153,3 +153,15 @@ Optional settings can be configured in VS Code Settings (JSON):
 | `compactMode` | `false` | Use compact display mode for specs |
 | `logsVisible` | `true` | Show logs pane by default |
 
+## AI Assistance
+
+The extension includes AI-powered test assistance for fixing, writing, and refactoring tests. It works with both **Cursor AI** and **GitHub Copilot**.
+
+For detailed instructions on using AI features, see [AI_USAGE.md](AI_USAGE.md).
+
+**Quick start:**
+1. Right-click a spec file in the Specs pane
+2. Select "AI Assist"
+3. Choose an action (Fix / Write / Refactor)
+4. Paste the generated context into your AI chat
+

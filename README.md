@@ -2,18 +2,20 @@
 
 A VS Code/Cursor extension for smart test running in Nx monorepos with Git-based change detection and AI-assisted debugging.
 
-## 🚀 Quick Install (Team)
+## Quick Install
 
 ```bash
 # Clone the repo
 git clone <repo-url> et-test-runner-vscode
 cd et-test-runner-vscode
 
-# Build and install
+# Build and install (creates symlinks)
 ./scripts/install.sh
 ```
 
-Then restart VS Code/Cursor and open your Nx workspace (e.g., `etoro-assets`).
+Then restart VS Code/Cursor and open your Nx workspace.
+
+**See [docs/INSTALLATION.md](docs/INSTALLATION.md) for detailed installation instructions.**
 
 ---
 
@@ -182,6 +184,8 @@ Note: Run is disabled for Karma projects (only Jest supported).
 
 **Update Testing Rules**: Run command `ET Test Runner: Update Jest Testing Rules` to refresh the rules template.
 
+**See [docs/AI_USAGE.md](docs/AI_USAGE.md) for detailed AI usage instructions.**
+
 ### 5. Resize Panes
 - Drag the vertical separator between Projects and Specs panes
 - Drag the horizontal separator above the Output pane
@@ -268,6 +272,10 @@ src/
 │   └── runningState.ts      # Running process
 ├── types/                   # TypeScript types
 docs/
+├── INSTALLATION.md           # User installation guide
+├── TEST_PLAN.md              # Verification test plan
+├── AI_USAGE.md               # AI assistance guide
+├── AI_CONTEXT.md             # Developer context for AI assistants
 └── jest-testing-template.mdc # Jest testing rules template
 ```
 
