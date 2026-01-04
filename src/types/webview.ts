@@ -22,7 +22,7 @@ export type WebViewMessage =
   | { type: 'toggleLogs' }
   | { type: 'pinSpec'; payload: { specPath: string } }
   | { type: 'unpinSpec'; payload: { specPath: string } }
-  | { type: 'openFile'; payload: { filePath: string; line?: number; column?: number } }
+  | { type: 'openFile'; payload: { filePath: string; line?: number; column?: number; searchText?: string } }
   | { type: 'copyToClipboard'; payload: { text: string } };
 
 // ============================================================================

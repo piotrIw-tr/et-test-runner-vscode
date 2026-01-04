@@ -17,6 +17,11 @@ import type { WorkspaceCache } from '../state/workspaceCache.js';
 import { getWebviewContent } from './getWebviewContent.js';
 import { parseCoverageSummary } from '../services/coverage/parseCoverage.js';
 
+// Escape special regex characters in a string
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'et-test-runner.mainView';
 
@@ -206,6 +211,7 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
           }
           const uri = vscode.Uri.file(filePath);
           const options: vscode.TextDocumentShowOptions = {};
+          
           if (message.payload.line !== undefined) {
             const pos = new vscode.Position(
               message.payload.line - 1,
@@ -213,7 +219,32 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
             );
             options.selection = new vscode.Range(pos, pos);
           }
-          await vscode.window.showTextDocument(uri, options);
+          
+          const doc = await vscode.window.showTextDocument(uri, options);
+          
+          // If searchText is provided, try to find and navigate to it
+          if (message.payload.searchText && !message.payload.line) {
+            const searchText = message.payload.searchText;
+            const text = doc.document.getText();
+            
+            // Try to find the test name in the document
+            // Look for patterns like: it('test name', describe('test name', test('test name'
+            const patterns = [
+              new RegExp(`(it|test|describe)\\s*\\(\\s*['"\`]${escapeRegex(searchText)}['"\`]`, 'i'),
+              new RegExp(escapeRegex(searchText), 'i')
+            ];
+            
+            for (const pattern of patterns) {
+              const match = text.match(pattern);
+              if (match && match.index !== undefined) {
+                const pos = doc.document.positionAt(match.index);
+                const range = new vscode.Range(pos, pos);
+                doc.revealRange(range, vscode.TextEditorRevealType.InCenter);
+                doc.selection = new vscode.Selection(pos, pos);
+                break;
+              }
+            }
+          }
         } catch (err) {
           console.error('[ET Provider] openFile error:', err);
         }

@@ -53,7 +53,7 @@ The header displays comprehensive status information similar to the console app:
 - **Fuzzy Search** - Type `status:fail` or `change:unstaged` to filter
 - **Pinned Specs** - Pin frequently-used specs (★ separated at top)
 - **Performance Tracking** - SLOW and FLAKY badges on specs
-- **Structured Output** - Default view with real-time updates; toggle to raw for detailed output
+- **Structured Output** - Default view with real-time updates and clickable test names for navigation; toggle to raw for detailed output
 - **Running Overlay** - Shows project name, spec count, and progress during test runs
 - **Duplicate Run Prevention** - Cannot start new tests while tests are running
 - **Global Loading Indicator** - Professional loading state with test tube animation
@@ -84,6 +84,7 @@ Press `?` at any time to see the help modal with all shortcuts.
 | Shortcut | Action |
 |----------|--------|
 | `Space` | Toggle spec selection |
+|| `o` | Open spec file in editor |
 | `⌘A` / `Ctrl+A` | Select all specs |
 | `⌘L` / `Ctrl+L` | Clear selection |
 | `⌘D` / `Ctrl+D` | Pin/Unpin spec |

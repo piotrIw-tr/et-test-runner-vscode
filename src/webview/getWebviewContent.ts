@@ -103,6 +103,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         <div class="pane-commands">
           <span class="cmd"><kbd>↑/↓</kbd> nav</span>
           <span class="cmd"><kbd>Space</kbd> toggle</span>
+          <span class="cmd"><kbd>o</kbd> open</span>
           <span class="cmd"><kbd>Enter</kbd> menu</span>
           <span class="cmd"><kbd>⇧A</kbd> run all</span>
         </div>
@@ -224,6 +225,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
           <div class="help-section">
             <h4>Specs Pane</h4>
             <div class="help-row"><kbd>Space</kbd><span>Toggle spec selection</span></div>
+            <div class="help-row"><kbd>o</kbd><span>Open spec file in editor</span></div>
             <div class="help-row"><kbd>⌘A</kbd><span>Select all specs</span></div>
             <div class="help-row"><kbd>⌘L</kbd><span>Clear selection</span></div>
             <div class="help-row"><kbd>⌘D</kbd><span>Pin/Unpin spec</span></div>
@@ -1430,9 +1432,50 @@ function getStyles(): string {
 
     .structured-test.pass { color: var(--pass); }
     .structured-test.fail { color: var(--fail); }
+    
+    .structured-test {
+      cursor: pointer;
+      border-radius: 3px;
+      padding: 3px 4px;
+      margin: 0 -4px;
+    }
+    
+    .structured-test:hover {
+      background: var(--bg-hover);
+    }
+    
+    .structured-header.clickable {
+      cursor: pointer;
+    }
+    
+    .structured-header.clickable:hover {
+      filter: brightness(1.2);
+    }
+    
+    .test-name {
+      flex: 1;
+    }
+    
+    .test-duration {
+      color: var(--fg-muted);
+      font-size: 10px;
+    }
+    
+    .structured-location {
+      color: var(--info);
+      font-size: 10px;
+      cursor: pointer;
+      text-decoration: underline;
+      margin-left: 8px;
+    }
+    
+    .structured-location:hover {
+      color: var(--fg);
+    }
 
     .structured-error {
       margin-left: 20px;
+      margin-top: 4px;
       padding: 4px 8px;
       background: var(--bg-tertiary);
       color: var(--fg-muted);
@@ -2055,11 +2098,14 @@ function getScript(): string {
         elements.projectsCount.textContent = \`(\${state.projects.length})\`;
 
         // Add click handlers
-        elements.projectsList.querySelectorAll('.project-item').forEach(el => {
+        elements.projectsList.querySelectorAll('.project-item').forEach((el, idx) => {
           el.addEventListener('click', () => {
             const projectName = el.dataset.project;
             const wasSelected = state.selectedProject;
             state.selectedProject = projectName;
+            
+            // Update focused project index to match clicked project
+            focusedProjectIndex = idx;
             
             // Clear selection when changing projects
             if (wasSelected !== projectName) {
@@ -2074,6 +2120,7 @@ function getScript(): string {
             updateFooter(); // Update footer with cleared selection
             focusedSpecIndex = 0;
             highlightFocusedSpec();
+            highlightFocusedProject(); // Update focus highlight
           });
         });
       }
@@ -2585,9 +2632,11 @@ function getScript(): string {
         paneElements[paneName]?.classList.add('focused-pane');
         paneElements[paneName]?.focus();
         
-        // Auto-select first item when switching panes
+        // Auto-select first item when switching panes (sync with selected project)
         if (paneName === 'projects') {
-          focusedProjectIndex = state.projects.length > 0 ? 0 : -1;
+          // Sync focusedProjectIndex with the currently selected project
+          const selectedIdx = state.projects.findIndex(p => p.name === state.selectedProject);
+          focusedProjectIndex = selectedIdx >= 0 ? selectedIdx : (state.projects.length > 0 ? 0 : -1);
           highlightFocusedProject();
         } else if (paneName === 'specs') {
           const project = state.projects.find(p => p.name === state.selectedProject);
@@ -2915,6 +2964,13 @@ function getScript(): string {
               send('runProject', { projectName: state.selectedProject });
             }
             e.preventDefault();
+          } else if (e.key === 'o' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+            // 'o' - Open focused spec file in editor
+            const focused = getFocusedSpec();
+            if (focused) {
+              send('openFile', { filePath: focused.absPath });
+            }
+            e.preventDefault();
           } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && /[a-zA-Z0-9._-]/.test(e.key)) {
             // Type-to-search: any alphanumeric character routes to search
             elements.searchInput.value += e.key;
@@ -3027,10 +3083,26 @@ function getScript(): string {
       const projectContextMenu = document.getElementById('project-context-menu');
 
       function showProjectContextMenu(project) {
-        const focusedEl = elements.projectsList.querySelector('.project-item.focused');
-        if (focusedEl) {
-          const rect = focusedEl.getBoundingClientRect();
+        // Try to find the focused element first
+        let targetEl = elements.projectsList.querySelector('.project-item.focused');
+        
+        // Fallback: find by selected project name
+        if (!targetEl) {
+          targetEl = elements.projectsList.querySelector('.project-item.selected');
+        }
+        
+        // Fallback: find by project name in data attribute
+        if (!targetEl && project) {
+          targetEl = elements.projectsList.querySelector(\`[data-project="\${project.name}"]\`);
+        }
+        
+        if (targetEl) {
+          const rect = targetEl.getBoundingClientRect();
           showProjectContextMenuAt(project, rect.left, rect.bottom + 4);
+        } else {
+          // Last resort: show at center of projects pane
+          const panesRect = elements.projectsList.getBoundingClientRect();
+          showProjectContextMenuAt(project, panesRect.left + 20, panesRect.top + 50);
         }
       }
       
@@ -3343,19 +3415,24 @@ function getScript(): string {
             testsHtml = '<div class="structured-tests">' + result.tests.map(test => {
               const testIcon = test.status === 'pass' ? '✓' : '✗';
               const testClass = test.status === 'pass' ? 'pass' : 'fail';
+              const errorHtml = test.error ? \`<div class="structured-error">\${escapeHtml(test.error)}</div>\` : '';
+              const locationHtml = test.location ? \`<span class="structured-location" data-file="\${escapeHtml(test.location.file)}" data-line="\${test.location.line}">\${escapeHtml(test.location.file)}:\${test.location.line}</span>\` : '';
+              
               return \`
-                <div class="structured-test \${testClass}">
-                  <span>\${testIcon}</span>
-                  <span>\${escapeHtml(test.name)}</span>
-                  \${test.error ? \`<div class="structured-error">\${escapeHtml(test.error)}</div>\` : ''}
+                <div class="structured-test \${testClass}" data-file="\${escapeHtml(result.file)}" data-test="\${escapeHtml(test.name)}">
+                  <span class="test-icon">\${testIcon}</span>
+                  <span class="test-name">\${escapeHtml(test.name)}</span>
+                  \${test.duration ? \`<span class="test-duration">(\${test.duration}ms)</span>\` : ''}
+                  \${locationHtml}
+                  \${errorHtml}
                 </div>
               \`;
             }).join('') + '</div>';
           }
 
           return \`
-            <div class="structured-result">
-              <div class="structured-header \${statusClass}">
+            <div class="structured-result" data-file="\${escapeHtml(result.file)}">
+              <div class="structured-header \${statusClass} clickable">
                 <span>\${icon} \${result.status.toUpperCase()}</span>
                 <span class="structured-file">\${escapeHtml(result.file)}</span>
                 <span class="structured-duration">\${result.duration || ''}</span>
@@ -3366,6 +3443,38 @@ function getScript(): string {
         }).join('');
 
         elements.outputStructured.innerHTML = html || '<div class="empty-state">No test results yet</div>';
+        
+        // Add click handlers for navigation
+        elements.outputStructured.querySelectorAll('.structured-header.clickable').forEach(header => {
+          header.addEventListener('click', () => {
+            const filePath = header.closest('.structured-result').dataset.file;
+            if (filePath) {
+              send('openFile', { filePath });
+            }
+          });
+        });
+        
+        elements.outputStructured.querySelectorAll('.structured-test').forEach(testEl => {
+          testEl.addEventListener('click', () => {
+            const filePath = testEl.dataset.file;
+            const testName = testEl.dataset.test;
+            if (filePath) {
+              // Try to open the file - we'll search for the test name
+              send('openFile', { filePath, searchText: testName });
+            }
+          });
+        });
+        
+        elements.outputStructured.querySelectorAll('.structured-location').forEach(locEl => {
+          locEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const filePath = locEl.dataset.file;
+            const line = parseInt(locEl.dataset.line, 10) || 1;
+            if (filePath) {
+              send('openFile', { filePath, line });
+            }
+          });
+        });
       }
 
       function parseTestOutput(rawText) {
@@ -3374,13 +3483,23 @@ function getScript(): string {
         
         let currentResult = null;
         let currentTest = null;
+        let capturingError = false;
+        let errorLines = [];
 
-        for (const line of lines) {
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          
           // Match PASS/FAIL lines
           const passMatch = line.match(/PASS\\s+(.+?)(?:\\s+\\(([\d.]+)\\s*s\\))?$/);
           const failMatch = line.match(/FAIL\\s+(.+?)(?:\\s+\\(([\d.]+)\\s*s\\))?$/);
           
           if (passMatch || failMatch) {
+            // Save any pending error
+            if (currentTest && errorLines.length > 0) {
+              currentTest.error = errorLines.join('\\n');
+              errorLines = [];
+            }
+            
             if (currentResult) {
               results.push(currentResult);
             }
@@ -3391,29 +3510,94 @@ function getScript(): string {
               tests: []
             };
             currentTest = null;
+            capturingError = false;
             continue;
           }
 
           if (currentResult) {
-            // Match individual test results
-            const testPassMatch = line.match(/^\\s*[✓✔]\\s*(.+?)(?:\\s+\\((\\d+)\\s*ms\\))?$/);
-            const testFailMatch = line.match(/^\\s*[✗✘×]\\s*(.+?)(?:\\s+\\((\\d+)\\s*ms\\))?$/);
+            // Match individual test results - handle various formats
+            // Jest uses ✓ for pass and ✕ or × for fail
+            const testPassMatch = line.match(/^\\s*[✓✔√]\\s*(.+?)(?:\\s+\\((\\d+)\\s*ms\\))?$/);
+            const testFailMatch = line.match(/^\\s*[✗✘×●]\\s*(.+?)(?:\\s+\\((\\d+)\\s*ms\\))?$/);
             
             if (testPassMatch) {
-              currentTest = { status: 'pass', name: testPassMatch[1].trim() };
+              // Save any pending error from previous test
+              if (currentTest && errorLines.length > 0) {
+                currentTest.error = errorLines.join('\\n');
+                errorLines = [];
+              }
+              currentTest = { 
+                status: 'pass', 
+                name: testPassMatch[1].trim(),
+                duration: testPassMatch[2] || null
+              };
               currentResult.tests.push(currentTest);
+              capturingError = false;
             } else if (testFailMatch) {
-              currentTest = { status: 'fail', name: testFailMatch[1].trim(), error: '' };
+              // Save any pending error from previous test
+              if (currentTest && errorLines.length > 0) {
+                currentTest.error = errorLines.join('\\n');
+                errorLines = [];
+              }
+              currentTest = { 
+                status: 'fail', 
+                name: testFailMatch[1].trim(), 
+                duration: testFailMatch[2] || null,
+                error: '',
+                location: null
+              };
               currentResult.tests.push(currentTest);
-            } else if (currentTest && currentTest.status === 'fail' && line.trim()) {
+              capturingError = true;
+            } else if (currentTest && currentTest.status === 'fail' && capturingError) {
               // Capture error details
-              if (line.includes('Expected:') || line.includes('Received:') || line.includes('Error:')) {
-                currentTest.error = (currentTest.error ? currentTest.error + '\\n' : '') + line.trim();
+              const trimmedLine = line.trim();
+              
+              // Look for file location patterns like "at Object.<anonymous> (src/file.ts:123:45)"
+              const locationMatch = trimmedLine.match(/at\\s+.+?\\((.+?):(\\d+)(?::\\d+)?\\)/);
+              if (locationMatch && !currentTest.location) {
+                currentTest.location = {
+                  file: locationMatch[1],
+                  line: parseInt(locationMatch[2], 10)
+                };
+              }
+              
+              // Capture meaningful error content
+              if (trimmedLine && !trimmedLine.startsWith('at ')) {
+                if (trimmedLine.includes('Expected:') || 
+                    trimmedLine.includes('Received:') || 
+                    trimmedLine.includes('Error:') ||
+                    trimmedLine.includes('expect(') ||
+                    trimmedLine.includes('toBe') ||
+                    trimmedLine.includes('toEqual') ||
+                    trimmedLine.includes('toMatch') ||
+                    trimmedLine.includes('toContain') ||
+                    trimmedLine.includes('toHaveBeenCalled') ||
+                    trimmedLine.startsWith('-') ||
+                    trimmedLine.startsWith('+') ||
+                    errorLines.length > 0) {
+                  // Limit error capture to avoid huge messages
+                  if (errorLines.length < 10) {
+                    errorLines.push(trimmedLine);
+                  }
+                }
+              }
+              
+              // Stop capturing on empty line or new section
+              if (!trimmedLine || trimmedLine.startsWith('Test Suites:') || trimmedLine.startsWith('Tests:')) {
+                if (errorLines.length > 0) {
+                  currentTest.error = errorLines.join('\\n');
+                  errorLines = [];
+                }
+                capturingError = false;
               }
             }
           }
         }
 
+        // Save any remaining data
+        if (currentTest && errorLines.length > 0) {
+          currentTest.error = errorLines.join('\\n');
+        }
         if (currentResult) {
           results.push(currentResult);
         }

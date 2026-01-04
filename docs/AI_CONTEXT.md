@@ -197,6 +197,7 @@ When requesting a feature:
 **Specs Pane:**
 - `↑/↓` - Navigate between specs
 - `Space` - Toggle selection
+- `o` - Open spec file in editor
 - `Enter` - Open context menu
 - `⇧A` - Run all specs in project
 - `Tab` - Switch to Projects pane
