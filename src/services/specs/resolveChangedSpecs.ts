@@ -110,31 +110,56 @@ export async function resolveChangedSpecs(opts: ResolveChangedSpecsOptions): Pro
   const missingByProject = new Map<string, MissingSpecEntry[]>(); // projectName -> missing specs
   const globalMissingSpecs: MissingSpecEntry[] = []; // For files without an owning project
 
-  for (const changed of opts.changedFiles) {
-    // Only care about files within the Nx workspace root (git root can be above).
-    const wsRoot = opts.workspaceRoot.endsWith(path.sep) ? opts.workspaceRoot : opts.workspaceRoot + path.sep;
-    if (!(changed.absPath === opts.workspaceRoot || changed.absPath.startsWith(wsRoot))) continue;
+  // Pre-filter files to only those within workspace root
+  const wsRoot = opts.workspaceRoot.endsWith(path.sep) ? opts.workspaceRoot : opts.workspaceRoot + path.sep;
+  const relevantFiles = opts.changedFiles.filter(changed => 
+    changed.absPath === opts.workspaceRoot || changed.absPath.startsWith(wsRoot)
+  );
+  console.log(`[resolveChangedSpecs] ${relevantFiles.length} files within workspace root`);
 
-    // Case 1: spec file changed directly
+  // Collect all paths we need to check for existence (batch operation)
+  const pathsToCheck = new Set<string>();
+  const specFiles: ChangedFile[] = [];
+  const sourceFiles: { changed: ChangedFile; derivedSpec: string }[] = [];
+
+  for (const changed of relevantFiles) {
     if (changed.absPath.endsWith('.spec.ts')) {
-      if (!(await pathExists(changed.absPath))) continue;
-      const owner = findOwningProject(projectsByRootLenDesc, changed.absPath);
-      if (!owner) continue;
-
-      const entry: SpecEntry = { absPath: changed.absPath, status: changed.status };
-      const pmap = specsByProject.get(owner.name) ?? new Map<string, SpecEntry>();
-      pmap.set(entry.absPath, mergeSpecEntry(pmap.get(entry.absPath), entry));
-      specsByProject.set(owner.name, pmap);
-      continue;
+      pathsToCheck.add(changed.absPath);
+      specFiles.push(changed);
+    } else if (shouldDeriveSpecFromSource(changed.absPath)) {
+      const derivedSpec = deriveSpecPathFromSource(changed.absPath);
+      pathsToCheck.add(derivedSpec);
+      sourceFiles.push({ changed, derivedSpec });
     }
+  }
 
-    // Case 2: source file changed → derive related spec
-    if (!shouldDeriveSpecFromSource(changed.absPath)) continue;
-    const derivedSpec = deriveSpecPathFromSource(changed.absPath);
+  // Batch check all paths at once (parallel)
+  console.log(`[resolveChangedSpecs] Checking ${pathsToCheck.size} paths for existence...`);
+  const existsCheckStart = Date.now();
+  const existsMap = new Map<string, boolean>();
+  const existsPromises = [...pathsToCheck].map(async (p) => {
+    const exists = await pathExists(p);
+    existsMap.set(p, exists);
+  });
+  await Promise.all(existsPromises);
+  console.log(`[resolveChangedSpecs] Path existence check: ${Date.now() - existsCheckStart}ms`);
 
+  // Process spec files
+  for (const changed of specFiles) {
+    if (!existsMap.get(changed.absPath)) continue;
+    const owner = findOwningProject(projectsByRootLenDesc, changed.absPath);
+    if (!owner) continue;
+
+    const entry: SpecEntry = { absPath: changed.absPath, status: changed.status };
+    const pmap = specsByProject.get(owner.name) ?? new Map<string, SpecEntry>();
+    pmap.set(entry.absPath, mergeSpecEntry(pmap.get(entry.absPath), entry));
+    specsByProject.set(owner.name, pmap);
+  }
+
+  // Process source files
+  for (const { changed, derivedSpec } of sourceFiles) {
     const owner = findOwningProject(projectsByRootLenDesc, changed.absPath);
     if (!owner) {
-      // No project owns this file
       globalMissingSpecs.push({
         sourceAbsPath: changed.absPath,
         expectedSpecAbsPath: derivedSpec,
@@ -143,13 +168,12 @@ export async function resolveChangedSpecs(opts: ResolveChangedSpecsOptions): Pro
       continue;
     }
 
-    if (await pathExists(derivedSpec)) {
+    if (existsMap.get(derivedSpec)) {
       const entry: SpecEntry = { absPath: derivedSpec, status: 'R' };
       const pmap = specsByProject.get(owner.name) ?? new Map<string, SpecEntry>();
       pmap.set(entry.absPath, mergeSpecEntry(pmap.get(entry.absPath), entry));
       specsByProject.set(owner.name, pmap);
     } else {
-      // Missing spec - track per project
       const missing = missingByProject.get(owner.name) ?? [];
       missing.push({
         sourceAbsPath: changed.absPath,
