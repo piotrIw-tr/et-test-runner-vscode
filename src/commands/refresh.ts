@@ -69,12 +69,18 @@ export async function refreshAll(
       }
     };
     
+    // Progress callback to update loader UI
+    const onProgress = (status: string) => {
+      webviewProvider.showLoader(status);
+    };
+    
     const result = await loadWorkspaceState({
       workspaceRoot,
       baseRef,
       skipFetch,
       verbose,
-      log: logBoth
+      log: logBoth,
+      onProgress
     });
     outputChannel.appendLine(`Workspace state loaded in ${Date.now() - loadStart}ms`);
 

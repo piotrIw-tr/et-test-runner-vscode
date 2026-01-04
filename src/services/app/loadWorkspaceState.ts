@@ -8,18 +8,24 @@ export interface LoadWorkspaceStateOptions {
   skipFetch: boolean;
   verbose: boolean;
   log?: (msg: string) => void;
+  onProgress?: (status: string) => void;
 }
 
 export async function loadWorkspaceState(opts: LoadWorkspaceStateOptions) {
   const startTime = Date.now();
   const log = opts.log || console.log;
+  const progress = opts.onProgress || (() => {});
   
   log(`[TIMING] loadWorkspaceState starting...`);
   
   const projectsStart = Date.now();
-  const projects = await indexProjects(opts.workspaceRoot, log);
+  const projects = await indexProjects(opts.workspaceRoot, { 
+    log, 
+    onProgress: progress 
+  });
   log(`[TIMING] indexProjects TOTAL: ${Date.now() - projectsStart}ms (${projects.length} projects)`);
   
+  progress('Detecting changed files...');
   const gitStart = Date.now();
   const changedFiles = await getChangedFiles({
     cwd: opts.workspaceRoot,
@@ -30,6 +36,7 @@ export async function loadWorkspaceState(opts: LoadWorkspaceStateOptions) {
   });
   log(`[TIMING] getChangedFiles: ${Date.now() - gitStart}ms (${changedFiles.length} files, skipFetch=${opts.skipFetch})`);
   
+  progress(`Resolving ${changedFiles.length} changed files to specs...`);
   const resolveStart = Date.now();
   const result = await resolveChangedSpecs({
     workspaceRoot: opts.workspaceRoot,
@@ -40,6 +47,7 @@ export async function loadWorkspaceState(opts: LoadWorkspaceStateOptions) {
   log(`[TIMING] resolveChangedSpecs: ${Date.now() - resolveStart}ms`);
   log(`[TIMING] TOTAL: ${Date.now() - startTime}ms`);
   
+  progress(`Found ${result.projects.length} projects with specs`);
   return result;
 }
 
