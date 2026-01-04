@@ -11,6 +11,11 @@ Before installing, ensure you have:
 - **Git** - To clone the repository
 - **An Nx workspace** - The extension only activates in folders containing `nx.json`
 
+> **Using nvm?** If you manage Node.js versions with nvm, make sure to activate Node 18+ before running the install script:
+> ```bash
+> nvm use 18
+> ```
+
 ## Installation Steps
 
 ### 1. Clone the Repository
