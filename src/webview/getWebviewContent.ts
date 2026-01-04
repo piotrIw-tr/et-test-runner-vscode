@@ -131,14 +131,14 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 
     </main>
 
-    <!-- Horizontal Resize Handle for Output -->
+    <!-- Horizontal Resize Handle for Bottom Section -->
     <div class="resize-handle-horizontal" id="resize-output"></div>
 
-    <!-- Bottom Section: Output + Logs (horizontal layout) -->
+    <!-- Bottom Section: Output + Logs side by side -->
     <div id="bottom-section">
-      <!-- Output Pane -->
-      <section id="output-pane" class="pane" tabindex="3">
-        <div class="pane-header">
+      <!-- Combined Header Bar (clickable to toggle visibility) -->
+      <div id="bottom-header" class="bottom-header">
+        <div class="bottom-header-left">
           <span class="pane-title">OUTPUT</span>
           <div class="pane-actions">
             <button id="output-raw-btn" class="btn-toggle" tabindex="-1">Raw</button>
@@ -146,21 +146,31 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             <button id="cancel-btn" class="btn-danger" tabindex="-1" style="display: none;">Cancel</button>
           </div>
         </div>
-        <div class="pane-content" id="output-content">
-          <pre id="output-raw" style="display: none;"></pre>
-          <div id="output-structured"></div>
+        <div class="bottom-header-right">
+          <span class="pane-title">LOGS</span>
+          <span class="log-count" id="log-count"></span>
         </div>
-      </section>
-
-      <!-- Logs Toggle Bar (vertical, clickable, also acts as resize handle when logs visible) -->
-      <div id="logs-toggle-bar" class="logs-toggle-bar">
-        <span class="logs-toggle-title">L<br>O<br>G<br>S</span>
+        <button class="bottom-toggle-btn" id="bottom-toggle-btn" title="Toggle Output/Logs">▼</button>
       </div>
+      
+      <!-- Content Area (Output + Separator + Logs) -->
+      <div id="bottom-content" class="bottom-content">
+        <!-- Output Pane -->
+        <section id="output-pane" class="pane" tabindex="3">
+          <div class="pane-content" id="output-content">
+            <pre id="output-raw" style="display: none;"></pre>
+            <div id="output-structured"></div>
+          </div>
+        </section>
 
-      <!-- Logs Pane (appears from right, hidden by default) -->
-      <aside id="logs-pane" class="pane collapsed">
-        <div class="pane-content" id="logs-list"></div>
-      </aside>
+        <!-- Vertical Resize Handle between Output and Logs -->
+        <div class="resize-handle" id="resize-logs" data-pane="logs"></div>
+
+        <!-- Logs Pane -->
+        <aside id="logs-pane" class="pane">
+          <div class="pane-content" id="logs-list"></div>
+        </aside>
+      </div>
     </div>
 
     <!-- Footer Bar -->
@@ -169,7 +179,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
       <span class="shortcut"><kbd>⇧R</kbd>:run changed</span>
       <span class="shortcut"><kbd>⌘X</kbd>:cancel</span>
       <span class="shortcut"><kbd>/</kbd>:search</span>
-      <span class="shortcut"><kbd>\`</kbd>:logs</span>
+      <span class="shortcut"><kbd>\`</kbd>:output</span>
       <span class="shortcut"><kbd>?</kbd>:help</span>
     </footer>
 
@@ -238,7 +248,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
           <div class="help-section">
             <h4>Other</h4>
             <div class="help-row"><kbd>⌘X</kbd><span>Cancel running tests</span></div>
-            <div class="help-row"><kbd>\`</kbd><span>Toggle logs pane</span></div>
+            <div class="help-row"><kbd>\`</kbd><span>Toggle output/logs section</span></div>
             <div class="help-row"><kbd>?</kbd><span>Show this help</span></div>
           </div>
         </div>
@@ -307,10 +317,85 @@ function getStyles(): string {
       height: 100vh;
     }
 
-    /* Bottom Section (Output + Logs - horizontal layout) */
+    /* Bottom Section (Output + Logs side by side) */
     #bottom-section {
       display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #bottom-section.collapsed {
+      height: auto !important;
+    }
+
+    #bottom-section.collapsed .bottom-content {
+      display: none;
+    }
+
+    #bottom-section.collapsed .bottom-toggle-btn {
+      transform: rotate(180deg);
+    }
+
+    /* Bottom Header - spans both panes */
+    .bottom-header {
+      display: flex;
+      align-items: center;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .bottom-header:hover {
+      background: var(--bg-hover);
+    }
+
+    .bottom-header-left {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-right: 1px solid var(--border-color);
+    }
+
+    .bottom-header-right {
+      width: 280px;
+      min-width: 150px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+    }
+
+    .bottom-toggle-btn {
+      background: none;
+      border: none;
+      color: var(--fg-muted);
+      font-size: 12px;
+      padding: 6px 10px;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .bottom-toggle-btn:hover {
+      color: var(--fg);
+    }
+
+    .log-count {
+      font-size: 10px;
+      color: var(--fg-muted);
+      background: var(--bg-tertiary);
+      padding: 1px 6px;
+      border-radius: 8px;
+    }
+
+    /* Bottom Content Area */
+    .bottom-content {
+      display: flex;
       flex-direction: row;
+      flex: 1;
       overflow: hidden;
     }
 
@@ -327,63 +412,15 @@ function getStyles(): string {
       overflow: auto;
     }
 
-    /* Logs toggle bar - vertical bar, always visible */
-    .logs-toggle-bar {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 8px 4px;
-      background: var(--bg-tertiary);
-      border-left: 1px solid var(--border-color);
-      cursor: pointer;
-      user-select: none;
-      width: 22px;
-      min-width: 22px;
-    }
-
-    .logs-toggle-bar:hover {
-      background: var(--bg-secondary);
-    }
-
-    .logs-toggle-bar.logs-visible {
-      cursor: ew-resize;
-      background: var(--accent);
-    }
-
-    .logs-toggle-bar.logs-visible:hover {
-      background: var(--accent-hover);
-    }
-
-    .logs-toggle-title {
-      font-size: 9px;
-      font-weight: 600;
-      color: var(--fg-secondary);
-      text-align: center;
-      line-height: 1.3;
-      letter-spacing: 1px;
-    }
-
-    .logs-toggle-bar.logs-visible .logs-toggle-title {
-      color: var(--bg-primary);
-    }
-
-    /* Logs pane - horizontal expansion from right */
+    /* Logs pane */
     #logs-pane {
+      width: 280px;
+      min-width: 150px;
+      max-width: 600px;
       overflow: hidden;
       display: flex;
       flex-direction: column;
-    }
-
-    #logs-pane.collapsed {
-      width: 0;
-      display: none;
-    }
-
-    #logs-pane:not(.collapsed) {
-      width: 300px;
-      min-width: 150px;
-      display: flex;
+      border-left: 1px solid var(--border-color);
     }
 
     #logs-pane .pane-content {
@@ -2022,7 +2059,10 @@ function getScript(): string {
         updateRunningUI();
         updateHeader();
         updateFooter();
-        elements.mainContent.classList.toggle('logs-hidden', !state.logsVisible);
+        // Apply bottom section collapsed state
+        if (bottomSection) {
+          bottomSection.classList.toggle('collapsed', !state.logsVisible);
+        }
       }
 
       function renderProjects() {
@@ -2542,6 +2582,11 @@ function getScript(): string {
 
         elements.logsList.innerHTML = html;
         elements.logsList.scrollTop = elements.logsList.scrollHeight;
+        
+        // Update log count in header
+        if (logCountEl) {
+          logCountEl.textContent = state.logs.length > 0 ? \`(\${state.logs.length})\` : '';
+        }
       }
 
       function updateRunningUI() {
@@ -2729,49 +2774,61 @@ function getScript(): string {
         send('cancelRun');
       });
 
-      // Logs toggle bar (click to toggle, drag to resize when visible)
-      const logsToggleBar = document.getElementById('logs-toggle-bar');
+      // Bottom Section Toggle (Output + Logs visibility)
+      const bottomSection = document.getElementById('bottom-section');
+      const bottomHeader = document.getElementById('bottom-header');
+      const bottomToggleBtn = document.getElementById('bottom-toggle-btn');
+      const bottomContent = document.getElementById('bottom-content');
       const logsPane = document.getElementById('logs-pane');
-      let logsResizing = false;
-      let logsDragged = false;
-      let logsStartX = 0;
-      let logsStartWidth = 300;
+      const logCountEl = document.getElementById('log-count');
       
-      function toggleLogs() {
-        const isCollapsed = logsPane.classList.toggle('collapsed');
-        logsToggleBar.classList.toggle('logs-visible', !isCollapsed);
+      function toggleBottomSection() {
+        bottomSection.classList.toggle('collapsed');
+        // Persist state
+        send('toggleLogs');
       }
       
-      logsToggleBar.addEventListener('mousedown', (e) => {
-        const isVisible = !logsPane.classList.contains('collapsed');
-        if (isVisible) {
-          // Start resizing
+      // Click on header to toggle
+      bottomHeader.addEventListener('click', (e) => {
+        // Don't toggle if clicking on buttons inside header
+        if (e.target.closest('.btn-toggle') || e.target.closest('.btn-danger')) {
+          return;
+        }
+        toggleBottomSection();
+      });
+      
+      // Toggle button click
+      bottomToggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleBottomSection();
+      });
+      
+      // Logs pane resizing (using the resize handle)
+      let logsResizing = false;
+      let logsStartX = 0;
+      let logsStartWidth = 280;
+      const logsResizeHandle = document.getElementById('resize-logs');
+      
+      if (logsResizeHandle) {
+        logsResizeHandle.addEventListener('mousedown', (e) => {
           logsResizing = true;
-          logsDragged = false;
           logsStartX = e.clientX;
           logsStartWidth = logsPane.offsetWidth;
           document.body.style.cursor = 'ew-resize';
           e.preventDefault();
-        }
-      });
-      
-      logsToggleBar.addEventListener('click', (e) => {
-        // Only toggle if we didn't drag (resize)
-        if (!logsDragged) {
-          toggleLogs();
-        }
-        logsDragged = false;
-      });
+        });
+      }
       
       document.addEventListener('mousemove', (e) => {
         if (logsResizing) {
           const delta = logsStartX - e.clientX;
-          // Only consider it a drag if moved more than 5px
-          if (Math.abs(delta) > 5) {
-            logsDragged = true;
-          }
           const newWidth = Math.max(150, Math.min(600, logsStartWidth + delta));
           logsPane.style.width = newWidth + 'px';
+          // Also update the header-right width to match
+          const headerRight = document.querySelector('.bottom-header-right');
+          if (headerRight) {
+            headerRight.style.width = newWidth + 'px';
+          }
         }
       });
       
@@ -2841,8 +2898,8 @@ function getScript(): string {
         
         // Global shortcuts (with modifiers)
         if (e.key === '\`') {
-          // Toggle logs pane
-          toggleLogs();
+          // Toggle bottom section (Output + Logs)
+          toggleBottomSection();
           e.preventDefault();
           return;
         }
