@@ -4,18 +4,26 @@ A VS Code/Cursor extension for smart test running in Nx monorepos with Git-based
 
 ## Quick Install
 
-```bash
-# Clone the repo
-git clone <repo-url> et-test-runner-vscode
-cd et-test-runner-vscode
+**Prerequisites:** Node.js 18+ (check with `node -v`)
 
-# Build and install (creates symlinks)
+```bash
+# 1. Clone the repo
+git clone <repo-url> ~/projects/et-test-runner-vscode
+cd ~/projects/et-test-runner-vscode
+
+# 2. Activate Node 18+ (if using nvm)
+nvm use 18
+
+# 3. Build and install
 ./scripts/install.sh
+
+# 4. Restart VS Code/Cursor
+
+# 5. Open your Nx workspace (folder with nx.json)
+#    Look for the ET Test Runner icon in the left sidebar
 ```
 
-Then restart VS Code/Cursor and open your Nx workspace.
-
-**See [docs/INSTALLATION.md](docs/INSTALLATION.md) for detailed installation instructions.**
+**Troubleshooting?** See [docs/INSTALLATION.md](docs/INSTALLATION.md) for detailed instructions.
 
 ---
 
