@@ -60,12 +60,21 @@ export async function refreshAll(
     // Load workspace state ONCE - pass outputChannel for timing logs
     outputChannel.appendLine('Loading workspace state...');
     const loadStart = Date.now();
+    
+    // Log to both output channel AND webview logs
+    const logBoth = (msg: string) => {
+      outputChannel.appendLine(msg);
+      if (msg.includes('[TIMING]')) {
+        webviewProvider.addLog('debug', msg.replace('[TIMING] ', ''));
+      }
+    };
+    
     const result = await loadWorkspaceState({
       workspaceRoot,
       baseRef,
       skipFetch,
       verbose,
-      log: (msg) => outputChannel.appendLine(msg)
+      log: logBoth
     });
     outputChannel.appendLine(`Workspace state loaded in ${Date.now() - loadStart}ms`);
 

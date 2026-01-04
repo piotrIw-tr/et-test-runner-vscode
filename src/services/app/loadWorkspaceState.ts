@@ -17,8 +17,8 @@ export async function loadWorkspaceState(opts: LoadWorkspaceStateOptions) {
   log(`[TIMING] loadWorkspaceState starting...`);
   
   const projectsStart = Date.now();
-  const projects = await indexProjects(opts.workspaceRoot);
-  log(`[TIMING] indexProjects: ${Date.now() - projectsStart}ms (${projects.length} projects)`);
+  const projects = await indexProjects(opts.workspaceRoot, log);
+  log(`[TIMING] indexProjects TOTAL: ${Date.now() - projectsStart}ms (${projects.length} projects)`);
   
   const gitStart = Date.now();
   const changedFiles = await getChangedFiles({
