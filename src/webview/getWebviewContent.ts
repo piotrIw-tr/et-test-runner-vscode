@@ -225,8 +225,8 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
     <div id="project-context-menu" class="context-menu" style="display: none;">
       <div class="context-menu-title" id="project-context-menu-title">project-name</div>
       <div class="context-menu-separator"></div>
-      <div class="context-menu-item" data-action="runProject" tabindex="0">▶ Run All Listed Specs</div>
-      <div class="context-menu-item" data-action="runChanged" tabindex="0">▶ Run Modified Specs Only</div>
+      <div class="context-menu-item" data-action="runListed" tabindex="0">▶ Run Listed Specs</div>
+      <div class="context-menu-item" data-action="runAll" tabindex="0">▶ Run All Project Specs</div>
     </div>
 
     <!-- Help Modal -->
@@ -3435,11 +3435,11 @@ function getScript(): string {
           const action = item.dataset.action;
           
           switch (action) {
-            case 'runProject':
+            case 'runListed':
               send('runProject', { projectName: contextMenuProject.name });
               break;
-            case 'runChanged':
-              send('runProjectChanged', { projectName: contextMenuProject.name });
+            case 'runAll':
+              send('runAllProjectSpecs', { projectName: contextMenuProject.name });
               break;
           }
           hideProjectContextMenu();

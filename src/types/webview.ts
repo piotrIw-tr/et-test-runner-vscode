@@ -13,7 +13,7 @@ export type WebViewMessage =
   | { type: 'runSpecs'; payload: { specPaths: string[] } }
   | { type: 'runProject'; payload: { projectName: string } }
   | { type: 'runAllChanged' }
-  | { type: 'runProjectChanged'; payload: { projectName: string } }
+  | { type: 'runAllProjectSpecs'; payload: { projectName: string } }
   | { type: 'rerunFailed' }
   | { type: 'cancelRun' }
   | { type: 'refresh' }

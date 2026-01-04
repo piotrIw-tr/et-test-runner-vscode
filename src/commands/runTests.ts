@@ -300,7 +300,7 @@ export async function runAllChangedFromWebview(
   }
 }
 
-export async function runProjectChangedFromWebview(
+export async function runAllProjectSpecsFromWebview(
   projectName: string,
   treeProvider: ProjectsTreeProvider,
   cache: WorkspaceCache,
@@ -335,22 +335,29 @@ export async function runProjectChangedFromWebview(
     return;
   }
 
-  // Get only changed specs (status !== 'R' means the spec file itself was changed)
-  const changedSpecs = project.specs
-    .filter(spec => spec.status !== 'R')
-    .map(spec => spec.absPath);
+  // Find ALL spec files in the project directory using glob
+  webviewProvider.addLog('info', `Scanning for all specs in ${projectName}...`);
   
-  if (changedSpecs.length === 0) {
-    vscode.window.showInformationMessage(`No changed specs found for project ${projectName}`);
+  const fg = await import('fast-glob');
+  const path = await import('path');
+  
+  const specPattern = path.join(project.rootAbs, '**/*.spec.ts');
+  const allSpecs = await fg.default(specPattern, {
+    absolute: true,
+    ignore: ['**/node_modules/**', '**/dist/**']
+  });
+  
+  if (allSpecs.length === 0) {
+    vscode.window.showInformationMessage(`No spec files found in project ${projectName}`);
     return;
   }
 
-  webviewProvider.addLog('info', `Running ${changedSpecs.length} changed specs in project ${projectName}`);
+  webviewProvider.addLog('info', `Running ALL ${allSpecs.length} specs in project ${projectName}`);
 
   await runTestsWithWebview(
     workspaceRoot,
     projectName,
-    changedSpecs,
+    allSpecs,
     treeProvider,
     cache,
     outputChannel,
