@@ -947,6 +947,22 @@ function getStyles(): string {
     .project-item.runner-karma {
       opacity: 0.7;
     }
+    
+    .projects-separator {
+      padding: 8px 10px 4px;
+      margin-top: 8px;
+      border-top: 1px solid var(--border-color);
+      font-size: 10px;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .projects-separator span {
+      background: var(--bg-tertiary);
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
 
     .status-icon {
       font-size: 11px;
@@ -1864,9 +1880,10 @@ function getScript(): string {
               elements.workspacePath.textContent = message.payload.workspacePath;
             }
             
-            // Auto-select first project if none selected
+            // Auto-select first project if none selected (prefer Jest projects)
             if (!state.selectedProject && state.projects.length > 0) {
-              state.selectedProject = state.projects[0].name;
+              const sorted = getSortedProjects();
+              state.selectedProject = sorted[0].name;
               send('selectProject', { projectName: state.selectedProject });
               focusedProjectIndex = 0;
             }
@@ -2009,7 +2026,15 @@ function getScript(): string {
       }
 
       function renderProjects() {
-        const html = state.projects.map(project => {
+        // Sort projects: Jest first, then Karma at the bottom
+        const jestProjects = state.projects.filter(p => p.runner === 'jest');
+        const karmaProjects = state.projects.filter(p => p.runner !== 'jest');
+        const sortedProjects = [...jestProjects, ...karmaProjects];
+        
+        // Track if we need a separator
+        let addedKarmaSeparator = false;
+        
+        const html = sortedProjects.map((project, idx) => {
           const isSelected = project.name === state.selectedProject;
           const isRunning = state.runningState.isRunning && 
                            state.runningState.projectName === project.name;
@@ -2017,6 +2042,13 @@ function getScript(): string {
           const runnerTag = isJest ? 'jest' : 'karma';
           const runnerClass = isJest ? 'runner-jest' : 'runner-karma';
           const blockClass = state.runningState.isRunning ? 'disabled' : '';
+          
+          // Add separator before first Karma project
+          let separatorHtml = '';
+          if (!isJest && !addedKarmaSeparator && karmaProjects.length > 0) {
+            addedKarmaSeparator = true;
+            separatorHtml = '<div class="projects-separator"><span>Karma Projects (run disabled)</span></div>';
+          }
           
           // Status icon based on test results
           let statusIcon = '';
@@ -2079,7 +2111,7 @@ function getScript(): string {
             coverageLineHtml = \`<div class="project-coverage">Stmts \${fmtPct(cov.statements)}  Funcs \${fmtPct(cov.functions)}  Branch \${fmtPct(cov.branches)}</div>\`;
           }
 
-          return \`
+          return \`\${separatorHtml}
             <div class="project-item \${isSelected ? 'selected' : ''} \${isRunning ? 'running' : ''} \${runnerClass} \${blockClass}"
                  data-project="\${project.name}" data-runner="\${project.runner}">
               <div class="project-name">
@@ -2634,9 +2666,10 @@ function getScript(): string {
         
         // Auto-select first item when switching panes (sync with selected project)
         if (paneName === 'projects') {
-          // Sync focusedProjectIndex with the currently selected project
-          const selectedIdx = state.projects.findIndex(p => p.name === state.selectedProject);
-          focusedProjectIndex = selectedIdx >= 0 ? selectedIdx : (state.projects.length > 0 ? 0 : -1);
+          // Sync focusedProjectIndex with the currently selected project (in sorted order)
+          const sorted = getSortedProjects();
+          const selectedIdx = sorted.findIndex(p => p.name === state.selectedProject);
+          focusedProjectIndex = selectedIdx >= 0 ? selectedIdx : (sorted.length > 0 ? 0 : -1);
           highlightFocusedProject();
         } else if (paneName === 'specs') {
           const project = state.projects.find(p => p.name === state.selectedProject);
@@ -2761,9 +2794,17 @@ function getScript(): string {
         return filterSpecs(project.specs, state.searchQuery)[focusedSpecIndex];
       }
       
+      function getSortedProjects() {
+        // Jest projects first, then Karma at the bottom (same order as rendered)
+        const jestProjects = state.projects.filter(p => p.runner === 'jest');
+        const karmaProjects = state.projects.filter(p => p.runner !== 'jest');
+        return [...jestProjects, ...karmaProjects];
+      }
+      
       function getFocusedProject() {
-        if (focusedProjectIndex < 0 || focusedProjectIndex >= state.projects.length) return null;
-        return state.projects[focusedProjectIndex];
+        const sorted = getSortedProjects();
+        if (focusedProjectIndex < 0 || focusedProjectIndex >= sorted.length) return null;
+        return sorted[focusedProjectIndex];
       }
 
       // Initialize first pane focus
@@ -2870,8 +2911,9 @@ function getScript(): string {
         
         // Pane-specific navigation
         if (currentPane === 'projects') {
+          const sortedProjects = getSortedProjects();
           if (e.key === 'ArrowDown') {
-            focusedProjectIndex = Math.min(focusedProjectIndex + 1, state.projects.length - 1);
+            focusedProjectIndex = Math.min(focusedProjectIndex + 1, sortedProjects.length - 1);
             // Select the project and update specs pane
             const focused = getFocusedProject();
             if (focused && focused.name !== state.selectedProject) {
@@ -2901,10 +2943,10 @@ function getScript(): string {
             }
             e.preventDefault();
           } else if (e.key === 'Enter') {
-            // Show context menu for focused project (not while running)
+            // Show context menu for focused project (not while running, Jest only)
             if (!state.runningState.isRunning) {
               const focused = getFocusedProject();
-              if (focused) {
+              if (focused && focused.runner === 'jest') {
                 showProjectContextMenu(focused);
               }
             }
@@ -3460,54 +3502,68 @@ function getScript(): string {
         }).join('');
 
         elements.outputStructured.innerHTML = html || '<div class="empty-state">No test results yet</div>';
+      }
+      
+      // Helper to resolve relative path to absolute using workspace root
+      function resolveStructuredFilePath(relPath) {
+        if (!relPath) return null;
+        // If already absolute, return as-is
+        if (relPath.startsWith('/')) return relPath;
+        // Otherwise, prepend workspace root
+        if (state.config && state.config.workspacePath) {
+          return state.config.workspacePath + '/' + relPath;
+        }
+        return relPath;
+      }
+      
+      // Use event delegation for structured output clicks (more robust than individual handlers)
+      elements.outputStructured.addEventListener('click', (e) => {
+        const target = e.target;
         
-        // Helper to resolve relative path to absolute using workspace root
-        function resolveFilePath(relPath) {
-          if (!relPath) return null;
-          // If already absolute, return as-is
-          if (relPath.startsWith('/')) return relPath;
-          // Otherwise, prepend workspace root
-          if (state.config && state.config.workspacePath) {
-            return state.config.workspacePath + '/' + relPath;
+        // Check if clicked on a location link
+        const locationEl = target.closest('.structured-location');
+        if (locationEl) {
+          e.stopPropagation();
+          console.log('[ET WebView] Location clicked');
+          const relPath = locationEl.dataset.file;
+          const filePath = resolveStructuredFilePath(relPath);
+          const line = parseInt(locationEl.dataset.line, 10) || 1;
+          console.log('[ET WebView] Opening location:', filePath, 'line:', line);
+          if (filePath) {
+            send('openFile', { filePath, line });
           }
-          return relPath;
+          return;
         }
         
-        // Add click handlers for navigation
-        elements.outputStructured.querySelectorAll('.structured-header.clickable').forEach(header => {
-          header.addEventListener('click', () => {
-            const relPath = header.closest('.structured-result').dataset.file;
-            const filePath = resolveFilePath(relPath);
-            if (filePath) {
-              send('openFile', { filePath });
-            }
-          });
-        });
+        // Check if clicked on a test item
+        const testEl = target.closest('.structured-test');
+        if (testEl) {
+          console.log('[ET WebView] Test clicked:', testEl.dataset.test);
+          const relPath = testEl.dataset.file;
+          const filePath = resolveStructuredFilePath(relPath);
+          const testName = testEl.dataset.test;
+          console.log('[ET WebView] Opening file:', filePath, 'test:', testName);
+          if (filePath) {
+            send('openFile', { filePath, searchText: testName });
+          }
+          return;
+        }
         
-        elements.outputStructured.querySelectorAll('.structured-test').forEach(testEl => {
-          testEl.addEventListener('click', () => {
-            const relPath = testEl.dataset.file;
-            const filePath = resolveFilePath(relPath);
-            const testName = testEl.dataset.test;
-            if (filePath) {
-              // Try to open the file - we'll search for the test name
-              send('openFile', { filePath, searchText: testName });
-            }
-          });
-        });
-        
-        elements.outputStructured.querySelectorAll('.structured-location').forEach(locEl => {
-          locEl.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const relPath = locEl.dataset.file;
-            const filePath = resolveFilePath(relPath);
-            const line = parseInt(locEl.dataset.line, 10) || 1;
-            if (filePath) {
-              send('openFile', { filePath, line });
-            }
-          });
-        });
-      }
+        // Check if clicked on a header
+        const headerEl = target.closest('.structured-header.clickable');
+        if (headerEl) {
+          console.log('[ET WebView] Header clicked');
+          const resultEl = headerEl.closest('.structured-result');
+          const relPath = resultEl ? resultEl.dataset.file : null;
+          console.log('[ET WebView] Rel path:', relPath);
+          const filePath = resolveStructuredFilePath(relPath);
+          console.log('[ET WebView] Resolved path:', filePath);
+          if (filePath) {
+            send('openFile', { filePath });
+          }
+          return;
+        }
+      });
 
       function parseTestOutput(rawText) {
         const results = [];
