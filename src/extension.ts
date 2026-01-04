@@ -17,6 +17,7 @@ let uiStateManager: UIStateManager;
 let runningStateManager: RunningStateManager;
 let outputChannel: vscode.OutputChannel;
 let statusBar: vscode.StatusBarItem;
+let skipFileWatcherRefresh = false; // Flag to prevent duplicate refresh when manually refreshing
 
 export async function activate(context: vscode.ExtensionContext) {
   outputChannel = vscode.window.createOutputChannel('ET Test Runner');
@@ -81,6 +82,12 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     }),
 
+    // Internal refresh without showing loader (used when caller manages loader)
+    vscode.commands.registerCommand('et-test-runner.refreshInternal', async () => {
+      await refreshCommand(treeProvider, outputChannel);
+      await refreshWebviewCommand(webviewProvider, outputChannel);
+    }),
+
     vscode.commands.registerCommand('et-test-runner.runSelected', (item) =>
       runSelectedCommand(item, treeProvider, workspaceCache, outputChannel, runningStateManager)
     ),
@@ -133,9 +140,14 @@ export async function activate(context: vscode.ExtensionContext) {
     }),
 
     vscode.commands.registerCommand('et-test-runner.createSpec', async (missingSpecPath: string, sourcePath: string) => {
-      await createSpecCommand(missingSpecPath, sourcePath, outputChannel);
-      await refreshCommand(treeProvider, outputChannel);
-      await refreshWebviewCommand(webviewProvider, outputChannel);
+      // Skip file watcher refresh since caller will trigger manual refresh
+      skipFileWatcherRefresh = true;
+      try {
+        await createSpecCommand(missingSpecPath, sourcePath, outputChannel);
+      } finally {
+        // Reset after file watcher debounce period
+        setTimeout(() => { skipFileWatcherRefresh = false; }, 3000);
+      }
     }),
 
     vscode.commands.registerCommand('et-test-runner.updateTestingRules', async () => {
@@ -270,6 +282,10 @@ function setupFileWatchers(
   let refreshTimeout: NodeJS.Timeout | undefined;
 
   const debouncedRefresh = () => {
+    // Skip if a manual refresh is in progress (e.g., after creating spec)
+    if (skipFileWatcherRefresh) {
+      return;
+    }
     if (refreshTimeout) {
       clearTimeout(refreshTimeout);
     }

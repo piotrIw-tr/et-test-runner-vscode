@@ -2499,6 +2499,8 @@ function getScript(): string {
           const isJestProject = isCurrentProjectJest();
           const checkboxStyle = isJestProject ? '' : 'style="visibility:hidden"';
           const runBtnStyle = isJestProject ? '' : 'style="display:none"';
+          const aiBtnStyle = isJestProject ? '' : 'style="display:none"';
+          const pinBtnStyle = isJestProject ? '' : 'style="display:none"';
 
           return \`
             <div class="spec-item \${isSelected ? 'selected' : ''} \${isPinned ? 'pinned' : ''} \${isRunning ? 'running' : ''} \${!isJestProject ? 'karma-spec' : ''}"
@@ -2511,9 +2513,9 @@ function getScript(): string {
               </div>
               <span class="spec-details">\${metricsHtml}\${changeBadge}</span>
               <div class="spec-actions">
-                <button class="spec-action-btn pin-btn" tabindex="-1" title="\${isPinned ? 'Unpin' : 'Pin'} (Ctrl+D)">\${isPinned ? '★' : '☆'}</button>
+                <button class="spec-action-btn pin-btn" tabindex="-1" title="\${isPinned ? 'Unpin' : 'Pin'} (Ctrl+D)" \${pinBtnStyle}>\${isPinned ? '★' : '☆'}</button>
                 <button class="spec-action-btn run-btn" tabindex="-1" title="Run" \${runBtnStyle}>▶</button>
-                <button class="spec-action-btn ai-btn" tabindex="-1" title="AI Assist">✨</button>
+                <button class="spec-action-btn ai-btn" tabindex="-1" title="AI Assist" \${aiBtnStyle}>✨</button>
               </div>
             </div>
             \${failurePreviewHtml}
@@ -3185,13 +3187,13 @@ function getScript(): string {
         // Update AI items visibility based on selected AI target
         contextMenu.classList.toggle('ai-selected', state.aiTarget !== null);
         
-        // Disable run action for Karma projects
+        // Disable all actions for Karma projects (except open file)
         const isJest = isCurrentProjectJest();
         contextMenu.querySelectorAll('.context-menu-item').forEach(item => {
           const action = item.dataset.action;
-          // Disable run for Karma projects (only allow open, pin, AI actions)
-          if (action === 'run') {
-            item.classList.toggle('disabled', !isJest);
+          // Only allow opening file for Karma projects - disable everything else
+          if (!isJest && action !== 'open') {
+            item.classList.add('disabled');
           } else {
             item.classList.remove('disabled');
           }

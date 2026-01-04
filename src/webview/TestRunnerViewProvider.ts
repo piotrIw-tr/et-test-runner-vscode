@@ -167,9 +167,10 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
             message.payload.missingSpecPath,
             message.payload.sourcePath
           );
-          // Refresh after creating spec
+          // Manually trigger refresh (the file watcher has 2s debounce which is too slow)
+          // Use internal refresh to avoid duplicate loader
           this.showLoader('Refreshing workspace...');
-          await vscode.commands.executeCommand('et-test-runner.refresh');
+          await vscode.commands.executeCommand('et-test-runner.refreshInternal');
         } finally {
           this.hideLoader();
         }
