@@ -112,13 +112,13 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
 
       case 'runProject':
         await vscode.commands.executeCommand(
-          'et-test-runner.runProject',
+          'et-test-runner.runProjectFromWebview',
           message.payload.projectName
         );
         break;
 
       case 'runAllChanged':
-        await vscode.commands.executeCommand('et-test-runner.runAll');
+        await vscode.commands.executeCommand('et-test-runner.runAllChangedFromWebview');
         break;
 
       case 'rerunFailed':
@@ -186,10 +186,6 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
         this.sendUIStateUpdate();
         break;
 
-      case 'toggleCompactMode':
-        this.uiState.toggleCompactMode();
-        this.sendUIStateUpdate();
-        break;
 
       case 'pinSpec':
         await this.uiState.pinSpec(message.payload.specPath);
@@ -260,7 +256,6 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
       } as any,
       runningState: this.runningState.getState(),
       logs: this.uiState.getLogs(),
-      runHistory: this.uiState.getRunHistory(),
       config: {
         baseRef: config.get('baseRef', 'origin/main'),
         branch: this._currentBranch,

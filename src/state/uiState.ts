@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { UIState, RunHistoryEntry, LogEntry } from '../types/webview.js';
+import type { UIState, LogEntry } from '../types/webview.js';
 
 /**
  * Manages UI state that persists across sessions.
@@ -12,12 +12,10 @@ interface PerformanceData {
 
 export class UIStateManager {
   private static readonly PINNED_KEY = 'et-test-runner.pinnedSpecs';
-  private static readonly HISTORY_KEY = 'et-test-runner.runHistory';
   private static readonly UI_STATE_KEY = 'et-test-runner.uiState';
   private static readonly PERF_KEY = 'et-test-runner.performance';
 
   private pinnedSpecs: Set<string> = new Set();
-  private runHistory: RunHistoryEntry[] = [];
   private logs: LogEntry[] = [];
   private uiState: UIState;
   private perfData: Map<string, PerformanceData> = new Map();
@@ -30,7 +28,6 @@ export class UIStateManager {
       pinnedSpecPaths: this.pinnedSpecs,
       searchQuery: '',
       logsVisible: true,
-      compactMode: false,
       focusedPane: 'projects'
     };
   }
@@ -42,12 +39,6 @@ export class UIStateManager {
       []
     );
     this.pinnedSpecs = new Set(pinnedArray);
-
-    // Load run history
-    this.runHistory = this.context.workspaceState.get<RunHistoryEntry[]>(
-      UIStateManager.HISTORY_KEY,
-      []
-    );
 
     // Load performance data
     const perfDataRaw = this.context.workspaceState.get<Record<string, PerformanceData>>(
@@ -93,44 +84,6 @@ export class UIStateManager {
     await this.context.workspaceState.update(
       UIStateManager.PINNED_KEY,
       Array.from(this.pinnedSpecs)
-    );
-  }
-
-  // ========== Run History ==========
-
-  async addRunToHistory(entry: Omit<RunHistoryEntry, 'id'>): Promise<void> {
-    const newEntry: RunHistoryEntry = {
-      ...entry,
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-    };
-    
-    this.runHistory.unshift(newEntry);
-    
-    // Keep only last 10 runs
-    if (this.runHistory.length > 10) {
-      this.runHistory = this.runHistory.slice(0, 10);
-    }
-    
-    await this.saveRunHistory();
-  }
-
-  getRunHistory(): RunHistoryEntry[] {
-    return [...this.runHistory];
-  }
-
-  getLastFailedSpecs(): string[] {
-    if (this.runHistory.length === 0) return [];
-    
-    const lastRun = this.runHistory[0];
-    if (lastRun.failed === 0) return [];
-    
-    return lastRun.specPaths;
-  }
-
-  private async saveRunHistory(): Promise<void> {
-    await this.context.workspaceState.update(
-      UIStateManager.HISTORY_KEY,
-      this.runHistory
     );
   }
 
@@ -182,11 +135,6 @@ export class UIStateManager {
   toggleLogsVisible(): boolean {
     this.uiState.logsVisible = !this.uiState.logsVisible;
     return this.uiState.logsVisible;
-  }
-
-  toggleCompactMode(): boolean {
-    this.uiState.compactMode = !this.uiState.compactMode;
-    return this.uiState.compactMode;
   }
 
   setFocusedPane(pane: UIState['focusedPane']): void {

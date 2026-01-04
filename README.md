@@ -52,11 +52,11 @@ The header displays comprehensive status information similar to the console app:
 - **Type-to-Search** - Just start typing while in specs pane (no need to focus input)
 - **Fuzzy Search** - Type `status:fail` or `change:unstaged` to filter
 - **Pinned Specs** - Pin frequently-used specs (★ separated at top)
-- **Run History** - Collapsible history pane with recent runs
 - **Performance Tracking** - SLOW and FLAKY badges on specs
-- **Structured Output** - Toggle between raw and parsed test results
-- **Running Overlay** - Blocks interaction during test runs
-- **Global Loading Indicator** - Shows loading state during refresh and spec creation
+- **Structured Output** - Default view with real-time updates; toggle to raw for detailed output
+- **Running Overlay** - Shows project name, spec count, and progress during test runs
+- **Duplicate Run Prevention** - Cannot start new tests while tests are running
+- **Global Loading Indicator** - Professional loading state with test tube animation
 - **Resizable Panes** - Drag separators to adjust pane sizes
 - **Help Modal** - Press `?` to see all available shortcuts
 - **Jest Testing Rules** - Auto-creates `.cursor/rules/jest-testing.mdc` with AI patterns
@@ -71,31 +71,34 @@ Press `?` at any time to see the help modal with all shortcuts.
 | Shortcut | Action |
 |----------|--------|
 | `Tab` | Switch between Projects/Specs panes |
-| `↑` / `↓` | Navigate up/down (projects pane also selects) |
-| `Enter` | Open spec context menu (Specs pane only) |
-| Click on pane | Make pane active |
-| Click on item | Select item and make pane active |
+| `↑` / `↓` | Navigate up/down (arrow keys only) |
+| `Enter` | Open context menu (both panes) |
+
+### Running Tests
+| Shortcut | Action |
+|----------|--------|
+| `⇧A` / `Shift+A` | Run all specs in current project |
+| `⇧R` / `Shift+R` | Run only changed specs (from Projects pane) |
 
 ### Specs Pane
 | Shortcut | Action |
 |----------|--------|
 | `Space` | Toggle spec selection |
-| `Ctrl+R` / `Cmd+R` | Run focused spec |
-| `Ctrl+A` | Select all specs |
-| `Ctrl+L` | Clear selection |
-| `Ctrl+D` | Pin/Unpin spec |
+| `⌘A` / `Ctrl+A` | Select all specs |
+| `⌘L` / `Ctrl+L` | Clear selection |
+| `⌘D` / `Ctrl+D` | Pin/Unpin spec |
 
 ### Search & Filter
 | Shortcut | Action |
 |----------|--------|
-| `/` or `Ctrl+F` | Focus search input |
+| `/` or `⌘F` / `Ctrl+F` | Focus search input |
 | `Escape` | Clear search |
 | Any letter/number | Type-to-search (while in specs pane) |
 
 ### Other
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+X` / `Cmd+X` | Cancel running test |
+| `⌘X` / `Ctrl+X` | Cancel running test |
 | `` ` `` (backtick) | Toggle logs pane |
 | `?` | Show help modal |
 

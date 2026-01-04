@@ -66,14 +66,21 @@ src/
 ## Common Patterns
 
 ### Adding a New Keyboard Shortcut
-1. Add key handler in `getWebviewContent.ts` → `handleKeyDown` function
+1. Add key handler in `getWebviewContent.ts` → keyboard event listener
 2. Update help modal content in same file
-3. Update `README.md` keyboard shortcuts section
+3. Update pane-commands section if it's a pane-specific shortcut
+4. Navigation is done via arrow keys only (↑/↓), not j/k
 
 ### Adding a New Command
 1. Register in `extension.ts` with `vscode.commands.registerCommand`
 2. Add to `package.json` → `contributes.commands`
 3. Optionally add menu contribution in `package.json` → `contributes.menus`
+4. For webview commands that run tests, create a `*FromWebview` variant in `runTests.ts` that uses `runTestsWithWebview` for proper output streaming
+
+### Running State Guards
+- All test run commands check `runningState.isRunning` before starting
+- WebView click handlers and keyboard shortcuts check `state.runningState.isRunning`
+- Shows warning message if user tries to run while tests are already running
 
 ### Adding WebView ↔ Extension Communication
 1. Define message type in `src/types/webview.ts`
@@ -173,10 +180,37 @@ When requesting a feature:
 ├──────────────┴──────────────────────────────────────────┤
 │                                              ┌─────────┐│
 │              Output                          │  LOGS   ││
-│              (test results)                  │(toggle) ││
+│              (Structured/Raw tabs)           │(toggle) ││
 │                                              └─────────┘│
 └─────────────────────────────────────────────────────────┘
 ```
+
+### Keyboard Shortcuts
+
+**Projects Pane:**
+- `↑/↓` - Navigate between projects (auto-selects)
+- `Enter` - Open project menu (Run All / Run Changed)
+- `⇧A` - Run all specs in focused project
+- `⇧R` - Run only changed specs
+- `Tab` - Switch to Specs pane
+
+**Specs Pane:**
+- `↑/↓` - Navigate between specs
+- `Space` - Toggle selection
+- `Enter` - Open context menu
+- `⇧A` - Run all specs in project
+- `Tab` - Switch to Projects pane
+
+**Output Pane:**
+- Defaults to Structured view with real-time updates
+- Raw view available for detailed console output
+
+### Running Tests
+- Single global loader shows during test runs with project name and progress
+- Failed specs are logged with names after test completion
+- Extensive logging in Logs pane shows what's happening
+- Duplicate run prevention: cannot start new tests while tests are running
+- All webview commands use dedicated `*FromWebview` functions for proper output streaming
 
 ## Style Guidelines
 

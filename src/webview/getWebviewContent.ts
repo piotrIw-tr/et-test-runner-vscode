@@ -19,8 +19,12 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
   <!-- Global Loading Overlay -->
   <div id="global-loader" class="global-loader">
     <div class="global-loader-content">
-      <div class="global-loader-spinner">⟳</div>
+      <div class="global-loader-spinner-container">
+        <div class="global-loader-spinner-ring"></div>
+        <div class="global-loader-spinner-icon">🧪</div>
+      </div>
       <div class="global-loader-text" id="global-loader-text">Loading...</div>
+      <div class="global-loader-subtext" id="global-loader-subtext"></div>
     </div>
   </div>
   
@@ -74,41 +78,20 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
       <!-- Projects Pane -->
       <aside id="projects-pane" class="pane" tabindex="1">
         <div class="resize-handle" id="resize-projects" data-pane="projects"></div>
-        <div class="running-overlay" id="projects-overlay">
-          <div class="running-overlay-content">
-            <div class="running-overlay-spinner">⏳</div>
-            <div class="running-overlay-text">Running tests...</div>
-          </div>
-        </div>
         <div class="pane-header">
           <span class="pane-title">PROJECTS</span>
           <span id="projects-count" class="pane-count"></span>
         </div>
         <div class="pane-commands">
-          <span class="cmd"><kbd>j/k</kbd> nav</span>
-          <span class="cmd"><kbd>Enter</kbd> select</span>
-          <span class="cmd"><kbd>Tab</kbd> →specs</span>
+          <span class="cmd"><kbd>↑/↓</kbd> nav</span>
+          <span class="cmd"><kbd>Enter</kbd> menu</span>
+          <span class="cmd"><kbd>⇧A</kbd> run all</span>
         </div>
         <div class="pane-content" id="projects-list"></div>
-        <div id="history-section" class="history-pane hidden">
-          <div class="section-header">
-            <span class="section-title">HISTORY</span>
-            <span id="history-count" class="section-count"></span>
-          </div>
-          <div id="history-list"></div>
-        </div>
-        <div class="history-toggle" id="history-toggle">▼ Show History</div>
       </aside>
 
       <!-- Specs Pane -->
       <section id="specs-pane" class="pane" tabindex="2">
-        <div class="resize-handle" id="resize-specs" data-pane="specs"></div>
-        <div class="running-overlay" id="specs-overlay">
-          <div class="running-overlay-content">
-            <div class="running-overlay-spinner">⏳</div>
-            <div class="running-overlay-text">Running tests...</div>
-          </div>
-        </div>
         <div class="pane-header">
           <span class="pane-title">SPECS</span>
           <span id="specs-project-name" class="pane-subtitle"></span>
@@ -118,11 +101,10 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
           </div>
         </div>
         <div class="pane-commands">
-          <span class="cmd"><kbd>j/k</kbd> nav</span>
+          <span class="cmd"><kbd>↑/↓</kbd> nav</span>
           <span class="cmd"><kbd>Space</kbd> toggle</span>
           <span class="cmd"><kbd>Enter</kbd> menu</span>
-          <span class="cmd"><kbd>⌘R</kbd> run spec</span>
-          <span class="cmd"><kbd>Tab</kbd> →projects</span>
+          <span class="cmd"><kbd>⇧A</kbd> run all</span>
         </div>
         <div class="search-container">
           <input type="text" id="search-input" placeholder="Type to search... (or / or Ctrl+F)" tabindex="-1" />
@@ -158,14 +140,14 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         <div class="pane-header">
           <span class="pane-title">OUTPUT</span>
           <div class="pane-actions">
-            <button id="output-raw-btn" class="btn-toggle active" tabindex="-1">Raw</button>
-            <button id="output-structured-btn" class="btn-toggle" tabindex="-1">Structured</button>
+            <button id="output-raw-btn" class="btn-toggle" tabindex="-1">Raw</button>
+            <button id="output-structured-btn" class="btn-toggle active" tabindex="-1">Structured</button>
             <button id="cancel-btn" class="btn-danger" tabindex="-1" style="display: none;">Cancel</button>
           </div>
         </div>
         <div class="pane-content" id="output-content">
-          <pre id="output-raw"></pre>
-          <div id="output-structured" style="display: none;"></div>
+          <pre id="output-raw" style="display: none;"></pre>
+          <div id="output-structured"></div>
         </div>
       </section>
 
@@ -182,16 +164,15 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
 
     <!-- Footer Bar -->
     <footer id="footer-bar">
-      <span class="shortcut"><kbd>Tab</kbd>:pane</span>
-      <span class="shortcut"><kbd>Ctrl+R</kbd>:run</span>
-      <span class="shortcut"><kbd>Ctrl+X</kbd>:cancel</span>
-      <span class="shortcut"><kbd>Ctrl+F</kbd>:search</span>
+      <span class="shortcut"><kbd>⇧A</kbd>:run all</span>
+      <span class="shortcut"><kbd>⇧R</kbd>:run changed</span>
+      <span class="shortcut"><kbd>⌘X</kbd>:cancel</span>
+      <span class="shortcut"><kbd>/</kbd>:search</span>
       <span class="shortcut"><kbd>\`</kbd>:logs</span>
-      <span class="shortcut"><kbd>c</kbd>:compact</span>
       <span class="shortcut"><kbd>?</kbd>:help</span>
     </footer>
 
-    <!-- Context Menu -->
+    <!-- Spec Context Menu -->
     <div id="context-menu" class="context-menu" style="display: none;">
       <div class="context-menu-title" id="context-menu-title">spec.ts</div>
       <div class="context-menu-separator"></div>
@@ -213,6 +194,14 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
       <div class="context-menu-item" data-action="pin" tabindex="0">★ Pin/Unpin</div>
     </div>
 
+    <!-- Project Context Menu -->
+    <div id="project-context-menu" class="context-menu" style="display: none;">
+      <div class="context-menu-title" id="project-context-menu-title">project-name</div>
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" data-action="runProject" tabindex="0">▶ Run All Specs</div>
+      <div class="context-menu-item" data-action="runChanged" tabindex="0">▶ Run Changed Only</div>
+    </div>
+
     <!-- Help Modal -->
     <div id="help-modal" class="modal-overlay" style="display: none;">
       <div class="modal-content">
@@ -224,26 +213,29 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
           <div class="help-section">
             <h4>Navigation</h4>
             <div class="help-row"><kbd>Tab</kbd><span>Switch between Projects/Specs panes</span></div>
-            <div class="help-row"><kbd>↓</kbd><span>Move down</span></div>
-            <div class="help-row"><kbd>↑</kbd><span>Move up</span></div>
-            <div class="help-row"><kbd>Enter</kbd><span>Open spec menu (Specs pane only)</span></div>
+            <div class="help-row"><kbd>↑</kbd> / <kbd>↓</kbd><span>Move up/down in list</span></div>
+            <div class="help-row"><kbd>Enter</kbd><span>Open context menu (both panes)</span></div>
           </div>
           <div class="help-section">
-            <h4>Specs</h4>
+            <h4>Running Tests</h4>
+            <div class="help-row"><kbd>⇧A</kbd><span>Run all specs in current project</span></div>
+            <div class="help-row"><kbd>⇧R</kbd><span>Run only changed specs</span></div>
+          </div>
+          <div class="help-section">
+            <h4>Specs Pane</h4>
             <div class="help-row"><kbd>Space</kbd><span>Toggle spec selection</span></div>
-            <div class="help-row"><kbd>Ctrl+R</kbd><span>Run focused spec</span></div>
-            <div class="help-row"><kbd>Ctrl+A</kbd><span>Select all specs</span></div>
-            <div class="help-row"><kbd>Ctrl+L</kbd><span>Clear selection</span></div>
-            <div class="help-row"><kbd>Ctrl+D</kbd><span>Pin/Unpin spec</span></div>
+            <div class="help-row"><kbd>⌘A</kbd><span>Select all specs</span></div>
+            <div class="help-row"><kbd>⌘L</kbd><span>Clear selection</span></div>
+            <div class="help-row"><kbd>⌘D</kbd><span>Pin/Unpin spec</span></div>
           </div>
           <div class="help-section">
             <h4>Search & Filter</h4>
-            <div class="help-row"><kbd>/</kbd> or <kbd>Ctrl+F</kbd><span>Focus search</span></div>
+            <div class="help-row"><kbd>/</kbd> or <kbd>⌘F</kbd><span>Focus search</span></div>
             <div class="help-row"><kbd>Esc</kbd><span>Clear search</span></div>
           </div>
           <div class="help-section">
             <h4>Other</h4>
-            <div class="help-row"><kbd>Ctrl+X</kbd><span>Cancel running tests</span></div>
+            <div class="help-row"><kbd>⌘X</kbd><span>Cancel running tests</span></div>
             <div class="help-row"><kbd>\`</kbd><span>Toggle logs pane</span></div>
             <div class="help-row"><kbd>?</kbd><span>Show this help</span></div>
           </div>
@@ -1329,55 +1321,6 @@ function getStyles(): string {
       gap: 8px;
     }
 
-    /* History */
-    #history-section {
-      border-top: 1px solid var(--border-color);
-      max-height: 150px;
-      overflow-y: auto;
-    }
-
-    .history-item {
-      padding: 4px 12px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      cursor: pointer;
-    }
-
-    .history-item:hover {
-      background: var(--bg-tertiary);
-    }
-
-    .history-time {
-      color: var(--fg-muted);
-      flex-shrink: 0;
-    }
-
-    .history-project {
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .history-result {
-      flex-shrink: 0;
-    }
-
-    .history-result.pass { color: var(--pass); }
-    .history-result.fail { color: var(--fail); }
-
-    .history-rerun {
-      color: var(--fg-muted);
-      cursor: pointer;
-      padding: 2px 4px;
-    }
-
-    .history-rerun:hover {
-      color: var(--accent);
-    }
-
     /* Logs */
     .log-entry {
       padding: 1px 8px;
@@ -1682,11 +1625,12 @@ function getStyles(): string {
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.7);
       display: none;
       align-items: center;
       justify-content: center;
       z-index: 9999;
+      backdrop-filter: blur(2px);
     }
 
     .global-loader.active {
@@ -1695,160 +1639,62 @@ function getStyles(): string {
 
     .global-loader-content {
       background: var(--bg-secondary);
-      padding: 20px 32px;
-      border-radius: 8px;
-      border: 1px solid var(--accent);
+      padding: 32px 48px;
+      border-radius: 12px;
+      border: 2px solid var(--accent);
       text-align: center;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 16px 64px rgba(0, 0, 0, 0.5);
+      min-width: 280px;
     }
 
-    .global-loader-spinner {
-      font-size: 32px;
-      margin-bottom: 12px;
-      color: var(--accent);
+    .global-loader-spinner-container {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 20px;
+    }
+
+    .global-loader-spinner-ring {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: 4px solid var(--bg-tertiary);
+      border-top-color: var(--accent);
+      border-radius: 50%;
       animation: spin 1s linear infinite;
+    }
+
+    .global-loader-spinner-icon {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 32px;
+      animation: pulse-icon 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-icon {
+      0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.8; }
     }
 
     .global-loader-text {
       color: var(--fg-primary);
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    /* Running Overlay */
-    .running-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.3);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 50;
-      backdrop-filter: blur(1px);
-    }
-
-    .running-overlay.active {
-      display: flex;
-    }
-
-    .running-overlay-content {
-      background: var(--bg-secondary);
-      padding: 12px 24px;
-      border-radius: 6px;
-      border: 1px solid var(--running);
-      text-align: center;
-    }
-
-    .running-overlay-spinner {
-      font-size: 24px;
+      font-size: 15px;
+      font-weight: 600;
       margin-bottom: 8px;
-      animation: spin 1s linear infinite;
     }
 
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-
-    .running-overlay-text {
-      color: var(--running);
+    .global-loader-subtext {
+      color: var(--fg-muted);
       font-size: 12px;
-      font-weight: 500;
+      font-family: var(--vscode-editor-font-family), monospace;
     }
-
-    /* History pane hidden by default */
-    .history-pane.hidden {
+    
+    .global-loader-subtext:empty {
       display: none;
-    }
-
-    .history-toggle {
-      cursor: pointer;
-      color: var(--accent);
-      font-size: 10px;
-      padding: 4px 8px;
-      text-align: center;
-      background: var(--bg-tertiary);
-    }
-
-    .history-toggle:hover {
-      background: var(--bg-secondary);
-    }
-
-    /* Compact Mode */
-    .compact .spec-item {
-      padding: 2px 8px;
-      font-size: 11px;
-    }
-
-    .compact .spec-checkbox {
-      width: 12px;
-      height: 12px;
-    }
-
-    .compact .spec-status {
-      width: 14px;
-      font-size: 11px;
-    }
-
-    .compact .spec-details {
-      font-size: 9px;
-    }
-
-    .compact .spec-actions {
-      gap: 2px;
-    }
-
-    .compact .spec-action-btn {
-      padding: 1px 3px;
-      font-size: 10px;
-    }
-
-    .compact .project-item {
-      padding: 3px 8px;
-      font-size: 11px;
-    }
-
-    .compact .project-name {
-      margin-bottom: 0;
-      display: inline;
-    }
-
-    .compact .project-metrics {
-      display: inline;
-      margin-left: 8px;
-      font-size: 10px;
-    }
-
-    .compact .failure-preview {
-      padding: 4px 6px;
-      margin-top: 2px;
-      font-size: 10px;
-    }
-
-    .compact .pane-header {
-      padding: 4px 8px;
-    }
-
-    .compact .pane-title {
-      font-size: 10px;
-    }
-
-    .compact .log-entry {
-      font-size: 10px;
-      padding: 1px 6px;
-    }
-
-    .compact #footer-bar {
-      padding: 2px 8px;
-      font-size: 10px;
-    }
-
-    .compact kbd {
-      font-size: 9px;
-      padding: 0 3px;
     }
 
     /* Spinner */
@@ -1890,10 +1736,8 @@ function getScript(): string {
         pinnedSpecs: new Set(),
         runningState: { isRunning: false },
         logs: [],
-        runHistory: [],
         searchQuery: '',
         logsVisible: false, // Hidden by default
-        compactMode: false,
         focusedPane: 'projects',
         config: { baseRef: '', branch: '', workspacePath: '' },
         aiTarget: null // null (not selected), 'cursor', or 'copilot'
@@ -1902,10 +1746,6 @@ function getScript(): string {
       // DOM Elements
       const elements = {
         projectsList: document.getElementById('projects-list'),
-        historyList: document.getElementById('history-list'),
-        historyCount: document.getElementById('history-count'),
-        historySection: document.getElementById('history-section'),
-        historyToggle: document.getElementById('history-toggle'),
         specsList: document.getElementById('specs-list'),
         missingSpecsList: document.getElementById('missing-specs-list'),
         missingSection: document.getElementById('missing-specs-section'),
@@ -1932,17 +1772,22 @@ function getScript(): string {
         missingCount: document.getElementById('missing-count'),
         cacheInfo: document.getElementById('cache-info'),
         branchInfo: document.getElementById('branch-info'),
-        projectsOverlay: document.getElementById('projects-overlay'),
-        specsOverlay: document.getElementById('specs-overlay'),
         globalLoader: document.getElementById('global-loader')
       };
 
       // Global loader functions
       const globalLoaderText = document.getElementById('global-loader-text');
+      const globalLoaderSubtext = document.getElementById('global-loader-subtext');
       
-      function showGlobalLoader(text = 'Loading...') {
+      function showGlobalLoader(text = 'Loading...', subtext = '') {
         globalLoaderText.textContent = text;
+        globalLoaderSubtext.textContent = subtext;
         elements.globalLoader.classList.add('active');
+      }
+      
+      function updateGlobalLoader(text, subtext) {
+        if (text) globalLoaderText.textContent = text;
+        if (subtext !== undefined) globalLoaderSubtext.textContent = subtext;
       }
       
       function hideGlobalLoader() {
@@ -2012,10 +1857,6 @@ function getScript(): string {
           case 'updateUIState':
             handleUIStateUpdate(message.payload);
             break;
-          case 'updateRunHistory':
-            state.runHistory = message.payload.history;
-            renderHistory();
-            break;
         }
       });
 
@@ -2032,11 +1873,9 @@ function getScript(): string {
         state.selectedSpecs = new Set(Array.isArray(uiState.selectedSpecPaths) ? uiState.selectedSpecPaths : []);
         state.pinnedSpecs = new Set(Array.isArray(uiState.pinnedSpecPaths) ? uiState.pinnedSpecPaths : []);
         state.logsVisible = uiState.logsVisible === true; // Default to hidden
-        state.compactMode = uiState.compactMode || false;
         
         state.runningState = payload.runningState || { isRunning: false };
         state.logs = payload.logs || [];
-        state.runHistory = payload.runHistory || [];
         
         if (payload.config) {
           state.config = payload.config;
@@ -2061,10 +1900,6 @@ function getScript(): string {
           state.logsVisible = uiState.logsVisible;
           elements.mainContent.classList.toggle('logs-hidden', !state.logsVisible);
         }
-        if (uiState.compactMode !== undefined) {
-          state.compactMode = uiState.compactMode;
-          document.body.classList.toggle('compact', state.compactMode);
-        }
         renderSpecs();
         updateFooter();
         updateHeader(); // Update logs toggle button state
@@ -2076,9 +1911,18 @@ function getScript(): string {
         } else {
           elements.outputRaw.innerHTML = parseOutputWithStackLinks(payload.content);
         }
-        // Auto-scroll the output container to bottom
-        const outputContainer = elements.outputRaw.parentElement;
-        outputContainer.scrollTop = outputContainer.scrollHeight;
+        
+        // Always update structured view if in structured mode for real-time updates
+        if (outputMode === 'structured') {
+          renderStructuredOutput();
+          // Auto-scroll the structured output container to bottom
+          const structuredContainer = elements.outputStructured.parentElement;
+          structuredContainer.scrollTop = structuredContainer.scrollHeight;
+        } else {
+          // Auto-scroll the raw output container to bottom
+          const outputContainer = elements.outputRaw.parentElement;
+          outputContainer.scrollTop = outputContainer.scrollHeight;
+        }
 
         // Add click handlers for stack trace links
         elements.outputRaw.querySelectorAll('.stack-link').forEach(link => {
@@ -2113,67 +1957,12 @@ function getScript(): string {
 
       function renderAll() {
         renderProjects();
-        renderHistory();
         renderSpecs();
         renderLogs();
         updateRunningUI();
         updateHeader();
         updateFooter();
         elements.mainContent.classList.toggle('logs-hidden', !state.logsVisible);
-        document.body.classList.toggle('compact', state.compactMode);
-      }
-
-      function renderHistory() {
-        if (!state.runHistory || state.runHistory.length === 0) {
-          elements.historyList.innerHTML = '<div class="empty-state" style="padding:8px;font-size:11px;">No recent runs</div>';
-          elements.historyCount.textContent = '';
-          return;
-        }
-
-        elements.historyCount.textContent = \`(\${state.runHistory.length})\`;
-
-        const html = state.runHistory.slice(0, 5).map(entry => {
-          const time = new Date(entry.timestamp).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false
-          });
-          const hasFailed = entry.failed > 0;
-          const resultClass = hasFailed ? 'fail' : 'pass';
-          const resultText = hasFailed 
-            ? \`✗\${entry.failed}/\${entry.specCount}\`
-            : \`✓\${entry.passed}\`;
-
-          return \`
-            <div class="history-item" data-history-id="\${entry.id}">
-              <span class="history-time">\${time}</span>
-              <span class="history-project">\${entry.projectName}</span>
-              <span class="history-result \${resultClass}">\${resultText}</span>
-              <span class="history-rerun" title="Re-run these specs">↻</span>
-            </div>
-          \`;
-        }).join('');
-
-        elements.historyList.innerHTML = html;
-
-        // Add click handlers for history items
-        elements.historyList.querySelectorAll('.history-item').forEach(el => {
-          const historyId = el.dataset.historyId;
-          const entry = state.runHistory.find(h => h.id === historyId);
-          
-          if (entry) {
-            el.querySelector('.history-rerun').addEventListener('click', e => {
-              e.stopPropagation();
-              send('runSpecs', { specPaths: entry.specPaths });
-            });
-
-            el.addEventListener('click', () => {
-              // Select project and specs from this run
-              state.selectedProject = entry.projectName;
-              send('selectProject', { projectName: entry.projectName });
-            });
-          }
-        });
       }
 
       function renderProjects() {
@@ -2554,7 +2343,9 @@ function getScript(): string {
 
           el.querySelector('.run-btn').addEventListener('click', e => {
             e.stopPropagation();
-            send('runSpecs', { specPaths: [specPath] });
+            if (!state.runningState.isRunning) {
+              send('runSpecs', { specPaths: [specPath] });
+            }
           });
 
           el.querySelector('.ai-btn').addEventListener('click', e => {
@@ -2675,21 +2466,40 @@ function getScript(): string {
       }
 
       function updateRunningUI() {
-        const { isRunning, progress } = state.runningState;
+        const { isRunning, progress, projectName, specPaths } = state.runningState;
         
         elements.progressContainer.style.display = isRunning ? 'flex' : 'none';
         elements.cancelBtn.style.display = isRunning ? 'block' : 'none';
         elements.statusText.textContent = isRunning ? 'Running...' : 'Ready';
         elements.statusText.classList.toggle('running', isRunning);
 
-        // Show/hide overlays to block interaction during runs
-        elements.projectsOverlay.classList.toggle('active', isRunning);
-        elements.specsOverlay.classList.toggle('active', isRunning);
-
-        if (isRunning && progress) {
-          const pct = Math.round((progress.completed / progress.total) * 100);
-          elements.progressFill.style.width = pct + '%';
-          elements.progressText.textContent = pct + '%';
+        // Use single global loader during test runs
+        if (isRunning) {
+          const specCount = specPaths?.length || 0;
+          const displayProject = projectName || state.selectedProject || 'Unknown';
+          
+          // Main text shows project and spec count
+          const mainText = specCount === 1 
+            ? \`Running 1 spec in \${displayProject}\`
+            : \`Running \${specCount} specs in \${displayProject}\`;
+          
+          let subText = '';
+          if (progress) {
+            const pct = Math.round((progress.completed / progress.total) * 100);
+            elements.progressFill.style.width = pct + '%';
+            elements.progressText.textContent = pct + '%';
+            
+            // Progress text shows current spec being run
+            subText = progress.currentSpec 
+              ? \`\${progress.completed}/\${progress.total} · \${progress.currentSpec.split('/').pop()}\`
+              : \`\${progress.completed}/\${progress.total} completed\`;
+          } else {
+            subText = \`\${specCount} spec\${specCount !== 1 ? 's' : ''} queued\`;
+          }
+          
+          showGlobalLoader(mainText, subText);
+        } else {
+          hideGlobalLoader();
         }
 
         renderProjects();
@@ -2822,22 +2632,19 @@ function getScript(): string {
       });
 
       elements.runSelectedBtn.addEventListener('click', () => {
-        send('runSpecs', { specPaths: Array.from(state.selectedSpecs) });
+        if (!state.runningState.isRunning) {
+          send('runSpecs', { specPaths: Array.from(state.selectedSpecs) });
+        }
       });
 
       elements.rerunFailedBtn.addEventListener('click', () => {
-        send('rerunFailed');
+        if (!state.runningState.isRunning) {
+          send('rerunFailed');
+        }
       });
 
       elements.cancelBtn.addEventListener('click', () => {
         send('cancelRun');
-      });
-
-      // History toggle
-      elements.historyToggle.addEventListener('click', () => {
-        const historySection = elements.historySection;
-        const isHidden = historySection.classList.toggle('hidden');
-        elements.historyToggle.textContent = isHidden ? '▼ Show History' : '▲ Hide History';
       });
 
       // Logs toggle bar (click to toggle, drag to resize when visible)
@@ -2963,7 +2770,7 @@ function getScript(): string {
         }
         
         if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-          if (state.selectedSpecs.size > 0) {
+          if (!state.runningState.isRunning && state.selectedSpecs.size > 0) {
             send('runSpecs', { specPaths: Array.from(state.selectedSpecs) });
           }
           e.preventDefault();
@@ -3044,16 +2851,29 @@ function getScript(): string {
               highlightFocusedProject();
             }
             e.preventDefault();
-          } else if (e.key === 'r' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
-            // Ctrl+R: Run all specs in focused project (only if jest)
-            const focused = getFocusedProject();
-            if (focused && focused.runner === 'jest') {
-              send('runProject', { projectName: focused.name });
+          } else if (e.key === 'Enter') {
+            // Show context menu for focused project (not while running)
+            if (!state.runningState.isRunning) {
+              const focused = getFocusedProject();
+              if (focused) {
+                showProjectContextMenu(focused);
+              }
             }
             e.preventDefault();
-          } else if ((e.key === 'R' || (e.key === 'r' && e.shiftKey)) && (e.ctrlKey || e.metaKey)) {
-            // Ctrl+Shift+R: Run only changed specs in all jest projects
-            send('runAllChanged');
+          } else if (e.key === 'A' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+            // Shift+A: Run all specs in focused project (only if jest and not running)
+            if (!state.runningState.isRunning) {
+              const focused = getFocusedProject();
+              if (focused && focused.runner === 'jest') {
+                send('runProject', { projectName: focused.name });
+              }
+            }
+            e.preventDefault();
+          } else if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+            // Shift+R: Run only changed specs (not while running)
+            if (!state.runningState.isRunning) {
+              send('runAllChanged');
+            }
             e.preventDefault();
           }
         } else if (currentPane === 'specs') {
@@ -3089,22 +2909,13 @@ function getScript(): string {
               showSpecContextMenu(focused);
             }
             e.preventDefault();
-          } else if (e.key === 'r' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
-            // Ctrl+R: Run focused spec (Jest only)
-            if (isCurrentProjectJest()) {
-              const focused = getFocusedSpec();
-              if (focused) {
-                send('runSpecs', { specPaths: [focused.absPath] });
-              }
-            }
-            e.preventDefault();
-          } else if ((e.key === 'R' || (e.key === 'r' && e.shiftKey)) && (e.ctrlKey || e.metaKey)) {
-            // Ctrl+Shift+R: Run all specs in current project (Jest only)
-            if (state.selectedProject && isCurrentProjectJest()) {
+          } else if (e.key === 'A' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+            // Shift+A: Run all specs in current project (Jest only, not while running)
+            if (!state.runningState.isRunning && state.selectedProject && isCurrentProjectJest()) {
               send('runProject', { projectName: state.selectedProject });
             }
             e.preventDefault();
-          } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && /[a-zA-Z0-9._-]/.test(e.key)) {
+          } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && /[a-zA-Z0-9._-]/.test(e.key)) {
             // Type-to-search: any alphanumeric character routes to search
             elements.searchInput.value += e.key;
             state.searchQuery = elements.searchInput.value;
@@ -3211,6 +3022,122 @@ function getScript(): string {
         contextMenuSpec = null;
       }
 
+      // Project Context Menu
+      let contextMenuProject = null;
+      const projectContextMenu = document.getElementById('project-context-menu');
+
+      function showProjectContextMenu(project) {
+        const focusedEl = elements.projectsList.querySelector('.project-item.focused');
+        if (focusedEl) {
+          const rect = focusedEl.getBoundingClientRect();
+          showProjectContextMenuAt(project, rect.left, rect.bottom + 4);
+        }
+      }
+      
+      function showProjectContextMenuAt(project, x, y) {
+        contextMenuProject = project;
+        projectContextMenu.style.left = x + 'px';
+        projectContextMenu.style.top = y + 'px';
+        projectContextMenu.style.display = 'block';
+        
+        // Adjust position if menu overflows viewport
+        const menuRect = projectContextMenu.getBoundingClientRect();
+        if (menuRect.right > window.innerWidth) {
+          projectContextMenu.style.left = (window.innerWidth - menuRect.width - 10) + 'px';
+        }
+        if (menuRect.bottom > window.innerHeight) {
+          projectContextMenu.style.top = (y - menuRect.height - 8) + 'px';
+        }
+        
+        // Set menu title to project name
+        const menuTitle = document.getElementById('project-context-menu-title');
+        if (menuTitle) {
+          menuTitle.textContent = project.name;
+        }
+        
+        // Disable actions for Karma projects
+        const isJest = project.runner === 'jest';
+        projectContextMenu.querySelectorAll('.context-menu-item').forEach(item => {
+          if (!isJest) {
+            item.classList.add('disabled');
+          } else {
+            item.classList.remove('disabled');
+          }
+        });
+        
+        // Focus first visible, non-disabled item in menu
+        const firstItem = projectContextMenu.querySelector('.context-menu-item:not(.disabled)');
+        if (firstItem) {
+          firstItem.focus();
+        }
+      }
+
+      function hideProjectContextMenu() {
+        projectContextMenu.style.display = 'none';
+        contextMenuProject = null;
+      }
+
+      // Close project context menu on click outside
+      document.addEventListener('click', e => {
+        if (!projectContextMenu.contains(e.target)) {
+          hideProjectContextMenu();
+        }
+      });
+
+      // Project context menu keyboard navigation
+      projectContextMenu.addEventListener('keydown', e => {
+        e.stopPropagation();
+        
+        const items = Array.from(projectContextMenu.querySelectorAll('.context-menu-item:not(.disabled)'));
+        const currentIdx = items.indexOf(document.activeElement);
+        
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const nextIdx = (currentIdx + 1) % items.length;
+          items[nextIdx]?.focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prevIdx = currentIdx <= 0 ? items.length - 1 : currentIdx - 1;
+          items[prevIdx]?.focus();
+        } else if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          document.activeElement?.click();
+        } else if (e.key === 'Escape') {
+          hideProjectContextMenu();
+          e.preventDefault();
+        }
+      });
+
+      // Close project menu on Escape (global)
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && projectContextMenu.style.display === 'block') {
+          hideProjectContextMenu();
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, true);
+
+      // Project context menu actions
+      projectContextMenu.querySelectorAll('.context-menu-item').forEach(item => {
+        item.addEventListener('click', () => {
+          if (!contextMenuProject) return;
+          if (item.classList.contains('disabled')) return;
+          if (state.runningState.isRunning) return; // Don't allow running while already running
+          
+          const action = item.dataset.action;
+          
+          switch (action) {
+            case 'runProject':
+              send('runProject', { projectName: contextMenuProject.name });
+              break;
+            case 'runChanged':
+              send('runAllChanged');
+              break;
+          }
+          hideProjectContextMenu();
+        });
+      });
+
       // Help Modal
       const helpModal = document.getElementById('help-modal');
       
@@ -3297,10 +3224,14 @@ function getScript(): string {
           
           switch (action) {
             case 'run':
-              send('runSpecs', { specPaths: [contextMenuSpec.absPath] });
+              if (!state.runningState.isRunning) {
+                send('runSpecs', { specPaths: [contextMenuSpec.absPath] });
+              }
               break;
             case 'runAll':
-              send('runProject', { projectName: state.selectedProject });
+              if (!state.runningState.isRunning) {
+                send('runProject', { projectName: state.selectedProject });
+              }
               break;
             case 'toggle':
               send('toggleSpec', { specPath: contextMenuSpec.absPath });
@@ -3379,7 +3310,7 @@ function getScript(): string {
       }
 
       // Output mode toggle
-      let outputMode = 'raw'; // 'raw' or 'structured'
+      let outputMode = 'structured'; // 'raw' or 'structured' - default to structured
       
       document.getElementById('output-raw-btn').addEventListener('click', () => {
         outputMode = 'raw';
@@ -3545,23 +3476,6 @@ function getScript(): string {
             mainContent.style.gridTemplateColumns = \`\${projectsPct}% \${specsPct}% \${logsPct}%\`;
           } else {
             mainContent.style.gridTemplateColumns = \`\${projectsPct}% 1fr\`;
-          }
-        } else if (paneName === 'specs') {
-          // Resize specs pane (by moving the divider with logs)
-          if (state.logsVisible && logsPaneForResize) {
-            const projectsWidth = projectsPane.offsetWidth;
-            const projectsPct = (projectsWidth / containerWidth * 100).toFixed(1);
-            
-            let newSpecsWidth = startWidths.specs + deltaX;
-            const minSpecs = 200;
-            const minLogs = 100;
-            const maxSpecs = containerWidth - projectsWidth - minLogs;
-            newSpecsWidth = Math.max(minSpecs, Math.min(newSpecsWidth, maxSpecs));
-            
-            const specsPct = (newSpecsWidth / containerWidth * 100).toFixed(1);
-            const logsPct = (100 - parseFloat(projectsPct) - parseFloat(specsPct)).toFixed(1);
-            
-            mainContent.style.gridTemplateColumns = \`\${projectsPct}% \${specsPct}% \${logsPct}%\`;
           }
         }
       });

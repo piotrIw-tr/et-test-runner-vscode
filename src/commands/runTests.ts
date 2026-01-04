@@ -18,6 +18,12 @@ export async function runSelectedCommand(
   outputChannel: vscode.OutputChannel,
   runningState?: RunningStateManager
 ): Promise<void> {
+  // Prevent running if already running
+  if (runningState?.isRunning) {
+    vscode.window.showWarningMessage('Tests are already running. Please wait or cancel the current run.');
+    return;
+  }
+  
   const workspaceRoot = treeProvider.getWorkspaceRoot();
   if (!workspaceRoot) {
     vscode.window.showErrorMessage('No workspace root found');
@@ -54,6 +60,12 @@ export async function runProjectCommand(
   outputChannel: vscode.OutputChannel,
   runningState?: RunningStateManager
 ): Promise<void> {
+  // Prevent running if already running
+  if (runningState?.isRunning) {
+    vscode.window.showWarningMessage('Tests are already running. Please wait or cancel the current run.');
+    return;
+  }
+  
   const workspaceRoot = treeProvider.getWorkspaceRoot();
   if (!workspaceRoot) {
     vscode.window.showErrorMessage('No workspace root found');
@@ -83,6 +95,12 @@ export async function runAllCommand(
   outputChannel: vscode.OutputChannel,
   runningState?: RunningStateManager
 ): Promise<void> {
+  // Prevent running if already running
+  if (runningState?.isRunning) {
+    vscode.window.showWarningMessage('Tests are already running. Please wait or cancel the current run.');
+    return;
+  }
+  
   const workspaceRoot = treeProvider.getWorkspaceRoot();
   if (!workspaceRoot) {
     vscode.window.showErrorMessage('No workspace root found');
@@ -115,6 +133,12 @@ export async function runSpecsFromWebview(
   webviewProvider: TestRunnerViewProvider,
   uiState: UIStateManager
 ): Promise<void> {
+  // Prevent running if already running
+  if (runningState.isRunning) {
+    vscode.window.showWarningMessage('Tests are already running. Please wait or cancel the current run.');
+    return;
+  }
+  
   const workspaceRoot = treeProvider.getWorkspaceRoot();
   if (!workspaceRoot) {
     vscode.window.showErrorMessage('No workspace root found');
@@ -148,6 +172,124 @@ export async function runSpecsFromWebview(
       workspaceRoot,
       projectName,
       projectSpecPaths,
+      treeProvider,
+      cache,
+      outputChannel,
+      runningState,
+      webviewProvider,
+      uiState
+    );
+  }
+}
+
+export async function runProjectFromWebview(
+  projectName: string,
+  treeProvider: ProjectsTreeProvider,
+  cache: WorkspaceCache,
+  outputChannel: vscode.OutputChannel,
+  runningState: RunningStateManager,
+  webviewProvider: TestRunnerViewProvider,
+  uiState: UIStateManager
+): Promise<void> {
+  // Prevent running if already running
+  if (runningState.isRunning) {
+    vscode.window.showWarningMessage('Tests are already running. Please wait or cancel the current run.');
+    return;
+  }
+  
+  const workspaceRoot = treeProvider.getWorkspaceRoot();
+  if (!workspaceRoot) {
+    vscode.window.showErrorMessage('No workspace root found');
+    return;
+  }
+
+  // Find the project
+  const projects = treeProvider.getProjects();
+  const project = projects.find(p => p.name === projectName);
+  
+  if (!project) {
+    vscode.window.showErrorMessage(`Project "${projectName}" not found`);
+    return;
+  }
+  
+  if (project.runner !== 'jest') {
+    vscode.window.showWarningMessage(`Project "${projectName}" uses ${project.runner}, not Jest. Only Jest projects are supported.`);
+    return;
+  }
+
+  const specPaths = project.specs.map(s => s.absPath);
+  if (specPaths.length === 0) {
+    vscode.window.showInformationMessage(`No specs found for project ${projectName}`);
+    return;
+  }
+
+  webviewProvider.addLog('info', `Running all ${specPaths.length} specs in project ${projectName}`);
+
+  await runTestsWithWebview(
+    workspaceRoot,
+    projectName,
+    specPaths,
+    treeProvider,
+    cache,
+    outputChannel,
+    runningState,
+    webviewProvider,
+    uiState
+  );
+}
+
+export async function runAllChangedFromWebview(
+  treeProvider: ProjectsTreeProvider,
+  cache: WorkspaceCache,
+  outputChannel: vscode.OutputChannel,
+  runningState: RunningStateManager,
+  webviewProvider: TestRunnerViewProvider,
+  uiState: UIStateManager
+): Promise<void> {
+  // Prevent running if already running
+  if (runningState.isRunning) {
+    vscode.window.showWarningMessage('Tests are already running. Please wait or cancel the current run.');
+    return;
+  }
+  
+  const workspaceRoot = treeProvider.getWorkspaceRoot();
+  if (!workspaceRoot) {
+    vscode.window.showErrorMessage('No workspace root found');
+    return;
+  }
+
+  // Collect all changed specs (status !== 'R' means it's changed)
+  const projects = treeProvider.getProjects();
+  const changedSpecsByProject = new Map<string, string[]>();
+  
+  for (const project of projects) {
+    // Only jest projects are supported
+    if (project.runner !== 'jest') continue;
+    
+    const changedSpecs = project.specs
+      .filter(spec => spec.status !== 'R') // R means unchanged (Rest)
+      .map(spec => spec.absPath);
+    
+    if (changedSpecs.length > 0) {
+      changedSpecsByProject.set(project.name, changedSpecs);
+    }
+  }
+  
+  const totalChangedSpecs = Array.from(changedSpecsByProject.values()).reduce((sum, arr) => sum + arr.length, 0);
+  
+  if (totalChangedSpecs === 0) {
+    vscode.window.showInformationMessage('No changed specs to run');
+    return;
+  }
+
+  webviewProvider.addLog('info', `Running ${totalChangedSpecs} changed specs across ${changedSpecsByProject.size} projects`);
+
+  // Run tests for each project with changed specs
+  for (const [projectName, specPaths] of changedSpecsByProject.entries()) {
+    await runTestsWithWebview(
+      workspaceRoot,
+      projectName,
+      specPaths,
       treeProvider,
       cache,
       outputChannel,
@@ -308,7 +450,11 @@ async function runTestsWithWebview(
 
   // Clear previous output
   webviewProvider.clearOutput();
-  webviewProvider.addLog('action', `Running tests for ${projectName} (${specPaths.length} specs)`);
+  webviewProvider.addLog('action', `Starting test run for project: ${projectName}`);
+  webviewProvider.addLog('info', `Specs to run: ${specPaths.length}`);
+  for (const specPath of specPaths) {
+    webviewProvider.addLog('debug', `  → ${path.basename(specPath)}`);
+  }
 
   const startTime = Date.now();
 
@@ -330,6 +476,7 @@ async function runTestsWithWebview(
 
     const commandStr = `$ ${nxCli.command} ${args.join(' ')}\n\n`;
     webviewProvider.appendOutput(commandStr);
+    webviewProvider.addLog('debug', `Executing: ${nxCli.command} ${args.slice(0, 3).join(' ')}...`);
     outputChannel.appendLine(commandStr);
 
     const child = execa(nxCli.command, args, {
@@ -413,27 +560,25 @@ async function runTestsWithWebview(
       }
     }
 
-    // Record run in history
-    await uiState.addRunToHistory({
-      timestamp: new Date().toISOString(),
-      projectName,
-      specCount: specPaths.length,
-      passed: specPaths.length - failedSpecs.length,
-      failed: failedSpecs.length,
-      durationMs,
-      specPaths
-    });
-
     // End running state
     runningState.endRun(failedSpecs);
 
-    // Log completion
+    // Log completion with detailed info
+    const passedCount = specPaths.length - failedSpecs.length;
     const statusMsg = exitCode === 0
       ? `✓ All tests passed (${(durationMs / 1000).toFixed(1)}s)`
-      : `✗ ${failedSpecs.length} spec(s) failed (${(durationMs / 1000).toFixed(1)}s)`;
+      : `✗ ${failedSpecs.length} spec(s) failed, ${passedCount} passed (${(durationMs / 1000).toFixed(1)}s)`;
     
     webviewProvider.appendOutput(`\n${statusMsg}\n`);
     webviewProvider.addLog(exitCode === 0 ? 'info' : 'error', statusMsg);
+    
+    // Log which specs failed
+    if (failedSpecs.length > 0) {
+      webviewProvider.addLog('error', `Failed specs:`);
+      for (const failedSpec of failedSpecs) {
+        webviewProvider.addLog('error', `  ✗ ${path.basename(failedSpec)}`);
+      }
+    }
 
     // Refresh views
     await treeProvider.loadData();

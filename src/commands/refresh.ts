@@ -30,6 +30,8 @@ export async function refreshWebviewCommand(
   const vsCodeWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!vsCodeWorkspace) return;
 
+  webviewProvider.addLog('action', 'Refreshing workspace...');
+
   try {
     const { loadWorkspaceState } = await import('../services/app/loadWorkspaceState.js');
     const { findWorkspaceRoot } = await import('../services/workspace/findWorkspaceRoot.js');
@@ -39,25 +41,44 @@ export async function refreshWebviewCommand(
     // Find the actual nx workspace root (may be in a subdirectory)
     const workspaceRoot = await findWorkspaceRoot(vsCodeWorkspace);
     outputChannel.appendLine(`Nx workspace root: ${workspaceRoot}`);
+    webviewProvider.addLog('debug', `Workspace root: ${workspaceRoot}`);
 
     // Get current git branch
     let branch = '';
     try {
       const { stdout } = await execa('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: workspaceRoot });
       branch = stdout.trim();
+      webviewProvider.addLog('debug', `Git branch: ${branch}`);
     } catch {
-      // Ignore git errors
+      webviewProvider.addLog('warn', 'Could not detect git branch');
     }
+
+    const baseRef = config.get<string>('baseRef', 'origin/master');
+    webviewProvider.addLog('debug', `Base ref: ${baseRef}`);
 
     const result = await loadWorkspaceState({
       workspaceRoot,
-      baseRef: config.get<string>('baseRef', 'origin/master'),
+      baseRef,
       skipFetch: config.get<boolean>('skipGitFetch', false),
       verbose: config.get<boolean>('verbose', false)
     });
 
     webviewProvider.updateProjects(result.projects, workspaceRoot, branch);
-    webviewProvider.addLog('info', `Loaded ${result.projects.length} projects with ${result.projects.reduce((s, p) => s + p.specs.length, 0)} specs`);
+    
+    const totalSpecs = result.projects.reduce((s, p) => s + p.specs.length, 0);
+    const totalMissing = result.projects.reduce((s, p) => s + (p.missingSpecs?.length || 0), 0);
+    
+    webviewProvider.addLog('info', `Loaded ${result.projects.length} projects, ${totalSpecs} specs`);
+    if (totalMissing > 0) {
+      webviewProvider.addLog('warn', `${totalMissing} missing spec files detected`);
+    }
+    
+    // Log project summary
+    for (const project of result.projects) {
+      if (project.specs.length > 0 || (project.missingSpecs?.length || 0) > 0) {
+        webviewProvider.addLog('debug', `  ${project.name}: ${project.specs.length} specs, ${project.missingSpecs?.length || 0} missing`);
+      }
+    }
   } catch (error) {
     outputChannel.appendLine(`WebView refresh error: ${error}`);
     webviewProvider.addLog('error', `Refresh failed: ${error}`);

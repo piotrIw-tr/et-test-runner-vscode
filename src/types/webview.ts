@@ -20,7 +20,6 @@ export type WebViewMessage =
   | { type: 'createSpec'; payload: { missingSpecPath: string; sourcePath: string } }
   | { type: 'search'; payload: { query: string } }
   | { type: 'toggleLogs' }
-  | { type: 'toggleCompactMode' }
   | { type: 'pinSpec'; payload: { specPath: string } }
   | { type: 'unpinSpec'; payload: { specPath: string } }
   | { type: 'openFile'; payload: { filePath: string; line?: number; column?: number } }
@@ -101,24 +100,12 @@ export interface LogEntry {
   message: string;
 }
 
-export interface RunHistoryEntry {
-  id: string;
-  timestamp: string;
-  projectName: string;
-  specCount: number;
-  passed: number;
-  failed: number;
-  durationMs: number;
-  specPaths: string[];
-}
-
 export interface UIState {
   selectedProjectName: string | null;
   selectedSpecPaths: Set<string>;
   pinnedSpecPaths: Set<string>;
   searchQuery: string;
   logsVisible: boolean;
-  compactMode: boolean;
   focusedPane: 'projects' | 'specs' | 'output' | 'logs';
 }
 
@@ -143,7 +130,6 @@ export type ExtensionMessage =
   | { type: 'updateProgress'; payload: RunningState }
   | { type: 'updateRunningState'; payload: RunningState }
   | { type: 'updateUIState'; payload: Partial<UIState> }
-  | { type: 'updateRunHistory'; payload: { history: RunHistoryEntry[] } }
   | { type: 'showNotification'; payload: { message: string; type: 'info' | 'warning' | 'error' } }
   | { type: 'showLoader'; payload?: { text?: string } }
   | { type: 'hideLoader' };
@@ -153,7 +139,6 @@ export interface InitializePayload {
   uiState: UIState;
   runningState: RunningState;
   logs: LogEntry[];
-  runHistory: RunHistoryEntry[];
   config: {
     baseRef: string;
     branch: string;
