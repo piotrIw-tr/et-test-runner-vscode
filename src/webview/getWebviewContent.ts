@@ -1825,7 +1825,7 @@ function getStyles(): string {
       left: 0;
       right: 0;
       bottom: 0;
-      background: var(--bg-primary);
+      background: #1e1e1e;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1845,6 +1845,10 @@ function getStyles(): string {
       gap: 16px;
       max-width: 400px;
       padding: 32px;
+      background: #252526;
+      border-radius: 12px;
+      border: 1px solid #3c3c3c;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     }
 
     .init-loader-logo {
@@ -1860,22 +1864,22 @@ function getStyles(): string {
     .init-loader-title {
       font-size: 24px;
       font-weight: 600;
-      color: var(--fg-primary);
+      color: #e0e0e0;
       letter-spacing: 0.5px;
     }
 
     .init-loader-spinner {
       width: 40px;
       height: 40px;
-      border: 3px solid var(--border-color);
-      border-top-color: var(--accent);
+      border: 3px solid #3c3c3c;
+      border-top-color: #007acc;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
 
     .init-loader-status {
       font-size: 14px;
-      color: var(--fg-secondary);
+      color: #cccccc;
       text-align: center;
     }
 
@@ -1885,11 +1889,12 @@ function getStyles(): string {
       overflow-y: auto;
       font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
       font-size: 11px;
-      color: var(--fg-muted);
-      background: var(--bg-secondary);
+      color: #a0a0a0;
+      background: #1e1e1e;
       border-radius: 6px;
       padding: 8px 12px;
       margin-top: 8px;
+      border: 1px solid #3c3c3c;
     }
 
     .init-loader-logs:empty {
@@ -1898,7 +1903,7 @@ function getStyles(): string {
 
     .init-log-entry {
       padding: 2px 0;
-      border-bottom: 1px solid var(--border-color);
+      border-bottom: 1px solid #333;
     }
 
     .init-log-entry:last-child {
@@ -1906,15 +1911,15 @@ function getStyles(): string {
     }
 
     .init-log-entry.success {
-      color: var(--pass);
+      color: #4ec9b0;
     }
 
     .init-log-entry.error {
-      color: var(--fail);
+      color: #f14c4c;
     }
 
     .init-log-entry.info {
-      color: var(--fg-secondary);
+      color: #a0a0a0;
     }
 
     /* Spinner */
