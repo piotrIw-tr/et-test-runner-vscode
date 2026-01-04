@@ -96,7 +96,7 @@ Press `?` at any time to see the help modal with all shortcuts.
 | Shortcut | Action |
 |----------|--------|
 | `Space` | Toggle spec selection |
-|| `o` | Open spec file in editor |
+| `o` | Open spec file in editor |
 | `⌘A` / `Ctrl+A` | Select all specs |
 | `⌘L` / `Ctrl+L` | Clear selection |
 | `⌘D` / `Ctrl+D` | Pin/Unpin spec |
