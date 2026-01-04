@@ -268,6 +268,17 @@ export async function activate(context: vscode.ExtensionContext) {
     setupFileWatchers(context, treeProvider, webviewProvider);
   }
 
+  // Check if this is a valid Nx workspace before loading
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const isNxWorkspace = await checkNxWorkspace(workspaceFolder);
+  
+  if (!isNxWorkspace) {
+    outputChannel.appendLine('Not an Nx workspace - extension will remain inactive');
+    webviewProvider.addLog('warn', 'Not an Nx workspace');
+    webviewProvider.showNotNxWorkspace(workspaceFolder || 'No workspace');
+    return;
+  }
+  
   // Initial load - run in background to not block extension activation
   // This allows the webview to show immediately with a loading state
   outputChannel.appendLine('Starting background workspace scan...');
@@ -371,4 +382,38 @@ function setupFileWatchers(
 
 export function deactivate() {
   outputChannel?.appendLine('ET Test Runner extension deactivated');
+}
+
+/**
+ * Check if the given path (or subdirectory) contains nx.json
+ */
+async function checkNxWorkspace(workspacePath: string | undefined): Promise<boolean> {
+  if (!workspacePath) return false;
+  
+  try {
+    // Check root
+    const rootNxJson = vscode.Uri.file(path.join(workspacePath, 'nx.json'));
+    await vscode.workspace.fs.stat(rootNxJson);
+    return true;
+  } catch {
+    // Check first-level subdirectories
+    try {
+      const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(workspacePath));
+      for (const [name, type] of entries) {
+        if (type === vscode.FileType.Directory) {
+          try {
+            const subNxJson = vscode.Uri.file(path.join(workspacePath, name, 'nx.json'));
+            await vscode.workspace.fs.stat(subNxJson);
+            return true;
+          } catch {
+            // Continue checking other directories
+          }
+        }
+      }
+    } catch {
+      // Failed to read directory
+    }
+  }
+  
+  return false;
 }

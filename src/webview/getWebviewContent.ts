@@ -2062,6 +2062,29 @@ function getScript(): string {
         }
       }
       
+      function showNotNxWorkspaceMessage(workspacePath) {
+        // Hide the normal UI and show a "not an Nx workspace" message
+        const app = document.getElementById('app');
+        if (app) {
+          app.innerHTML = \`
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:20px;text-align:center;color:#888;">
+              <div style="font-size:48px;margin-bottom:16px;">📦</div>
+              <h2 style="margin:0 0 8px;color:#ccc;font-weight:500;">Not an Nx Workspace</h2>
+              <p style="margin:0 0 16px;font-size:13px;line-height:1.5;max-width:300px;">
+                ET Test Runner requires an <strong style="color:#aaa;">Nx monorepo</strong> with a <code style="background:#333;padding:2px 6px;border-radius:3px;">nx.json</code> file.
+              </p>
+              <div style="background:#2a2a2a;border-radius:6px;padding:12px 16px;font-size:11px;color:#666;margin-bottom:16px;">
+                <div style="margin-bottom:4px;">Current workspace:</div>
+                <code style="color:#888;word-break:break-all;">\${workspacePath}</code>
+              </div>
+              <p style="margin:0;font-size:11px;color:#666;">
+                Open an Nx workspace folder to use this extension.
+              </p>
+            </div>
+          \`;
+        }
+      }
+      
       // Update status immediately
       updateStartupStatus('Waiting for extension...');
       addStartupLog('WebView loaded, waiting for data');
@@ -2200,6 +2223,10 @@ function getScript(): string {
             break;
           case 'hideLoader':
             hideGlobalLoader();
+            break;
+          case 'notNxWorkspace':
+            hideStartupLoader();
+            showNotNxWorkspaceMessage(message.payload?.workspacePath || '');
             break;
           case 'updateSpecs':
             state.specs = message.payload.specs;

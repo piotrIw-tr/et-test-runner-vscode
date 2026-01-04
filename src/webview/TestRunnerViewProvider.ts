@@ -580,6 +580,10 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
     this.postMessage({ type: 'hideLoader' });
   }
 
+  public showNotNxWorkspace(workspacePath: string): void {
+    this.postMessage({ type: 'notNxWorkspace', payload: { workspacePath } });
+  }
+
   private postMessage(message: ExtensionMessage): boolean {
     if (!this._view) {
       console.log('[ET Provider] postMessage: No view available for', message.type);

@@ -135,6 +135,7 @@ export type ExtensionMessage =
   | { type: 'showNotification'; payload: { message: string; type: 'info' | 'warning' | 'error' } }
   | { type: 'showLoader'; payload?: { text?: string } }
   | { type: 'hideLoader' }
+  | { type: 'notNxWorkspace'; payload: { workspacePath: string } }
   | { type: 'initProgress'; payload: { status?: string; log?: string; logType?: 'info' | 'success' | 'error' } };
 
 export interface InitializePayload {
