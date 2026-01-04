@@ -12,11 +12,12 @@ export interface LoadWorkspaceStateOptions {
 export async function loadWorkspaceState(opts: LoadWorkspaceStateOptions) {
   const startTime = Date.now();
   
+  // Always log timing to help debug slow startup
+  console.log(`[loadWorkspaceState] Starting...`);
+  
   const projectsStart = Date.now();
   const projects = await indexProjects(opts.workspaceRoot);
-  if (opts.verbose) {
-    console.log(`[loadWorkspaceState] indexProjects: ${Date.now() - projectsStart}ms (${projects.length} projects)`);
-  }
+  console.log(`[loadWorkspaceState] indexProjects: ${Date.now() - projectsStart}ms (${projects.length} projects)`);
   
   const gitStart = Date.now();
   const changedFiles = await getChangedFiles({
@@ -25,9 +26,7 @@ export async function loadWorkspaceState(opts: LoadWorkspaceStateOptions) {
     skipFetch: opts.skipFetch,
     verbose: opts.verbose,
   });
-  if (opts.verbose) {
-    console.log(`[loadWorkspaceState] getChangedFiles: ${Date.now() - gitStart}ms (${changedFiles.length} files)`);
-  }
+  console.log(`[loadWorkspaceState] getChangedFiles: ${Date.now() - gitStart}ms (${changedFiles.length} files, skipFetch=${opts.skipFetch})`);
   
   const resolveStart = Date.now();
   const result = await resolveChangedSpecs({
@@ -35,10 +34,8 @@ export async function loadWorkspaceState(opts: LoadWorkspaceStateOptions) {
     projects,
     changedFiles,
   });
-  if (opts.verbose) {
-    console.log(`[loadWorkspaceState] resolveChangedSpecs: ${Date.now() - resolveStart}ms`);
-    console.log(`[loadWorkspaceState] TOTAL: ${Date.now() - startTime}ms`);
-  }
+  console.log(`[loadWorkspaceState] resolveChangedSpecs: ${Date.now() - resolveStart}ms`);
+  console.log(`[loadWorkspaceState] TOTAL: ${Date.now() - startTime}ms`);
   
   return result;
 }

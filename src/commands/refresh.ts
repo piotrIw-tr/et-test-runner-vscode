@@ -19,15 +19,25 @@ export async function refreshAll(
   webviewProvider.addLog('action', 'Refreshing workspace...');
 
   try {
+    outputChannel.appendLine(`[${Date.now() - startTime}ms] Starting dynamic imports...`);
+    
+    const importStart = Date.now();
     const { loadWorkspaceState } = await import('../services/app/loadWorkspaceState.js');
+    outputChannel.appendLine(`[${Date.now() - startTime}ms] Imported loadWorkspaceState (+${Date.now() - importStart}ms)`);
+    
     const { findWorkspaceRoot } = await import('../services/workspace/findWorkspaceRoot.js');
+    outputChannel.appendLine(`[${Date.now() - startTime}ms] Imported findWorkspaceRoot`);
+    
     const { execa } = await import('execa');
+    outputChannel.appendLine(`[${Date.now() - startTime}ms] Imported execa`);
+    
     const config = vscode.workspace.getConfiguration('et-test-runner');
 
     // Find the actual nx workspace root (may be in a subdirectory)
-    outputChannel.appendLine('Finding workspace root...');
+    outputChannel.appendLine(`[${Date.now() - startTime}ms] Finding workspace root...`);
+    const findRootStart = Date.now();
     const workspaceRoot = await findWorkspaceRoot(vsCodeWorkspace);
-    outputChannel.appendLine(`Nx workspace root: ${workspaceRoot} (${Date.now() - startTime}ms)`);
+    outputChannel.appendLine(`[${Date.now() - startTime}ms] Found workspace root: ${workspaceRoot} (+${Date.now() - findRootStart}ms)`);
     webviewProvider.addLog('debug', `Workspace root: ${workspaceRoot}`);
 
     // Get current git branch

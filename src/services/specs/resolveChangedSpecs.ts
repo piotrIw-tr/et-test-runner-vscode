@@ -101,6 +101,9 @@ function mergeSpecEntry(existing: SpecEntry | undefined, incoming: SpecEntry): S
 }
 
 export async function resolveChangedSpecs(opts: ResolveChangedSpecsOptions): Promise<ResolveChangedSpecsResult> {
+  const startTime = Date.now();
+  console.log(`[resolveChangedSpecs] Starting with ${opts.changedFiles.length} changed files, ${opts.projects.length} projects`);
+  
   const projectsByRootLenDesc = [...opts.projects].sort((a, b) => b.rootAbs.length - a.rootAbs.length);
 
   const specsByProject = new Map<string, Map<string, SpecEntry>>(); // projectName -> (absSpecPath -> entry)
@@ -182,6 +185,9 @@ export async function resolveChangedSpecs(opts: ResolveChangedSpecsOptions): Pro
 
   // Sort projects by name
   projects.sort((a, b) => a.name.localeCompare(b.name));
+
+  const totalSpecs = projects.reduce((sum, p) => sum + p.specs.length, 0);
+  console.log(`[resolveChangedSpecs] Completed in ${Date.now() - startTime}ms: ${projects.length} projects with specs, ${totalSpecs} total specs`);
 
   return { projects, missingSpecs: globalMissingSpecs };
 }
