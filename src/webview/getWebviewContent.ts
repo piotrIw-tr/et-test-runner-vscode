@@ -317,6 +317,10 @@ function getStyles(): string {
       height: 100vh;
     }
 
+    #app.bottom-collapsed {
+      grid-template-rows: auto 1fr auto auto auto;
+    }
+
     /* Bottom Section (Output + Logs side by side) */
     #bottom-section {
       display: flex;
@@ -2071,7 +2075,9 @@ function getScript(): string {
         updateFooter();
         // Apply bottom section collapsed state
         if (bottomSection) {
-          bottomSection.classList.toggle('collapsed', !state.logsVisible);
+          const isCollapsed = !state.logsVisible;
+          bottomSection.classList.toggle('collapsed', isCollapsed);
+          document.getElementById('app').classList.toggle('bottom-collapsed', isCollapsed);
         }
       }
 
@@ -2793,7 +2799,9 @@ function getScript(): string {
       const logCountEl = document.getElementById('log-count');
       
       function toggleBottomSection() {
-        bottomSection.classList.toggle('collapsed');
+        const isCollapsed = bottomSection.classList.toggle('collapsed');
+        // Also toggle the grid layout on #app
+        document.getElementById('app').classList.toggle('bottom-collapsed', isCollapsed);
         // Persist state
         send('toggleLogs');
       }
