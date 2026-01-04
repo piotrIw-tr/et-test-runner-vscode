@@ -131,6 +131,9 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         <div class="search-container">
           <input type="text" id="search-input" placeholder="Type to search... (or / or Ctrl+F)" tabindex="-1" />
           <button id="search-clear" class="btn-icon" tabindex="-1" title="Clear search">×</button>
+          <button id="run-selected-btn" class="btn-run-selected" tabindex="-1" disabled>
+            Run <span id="selection-badge" class="selection-badge">0</span>
+          </button>
         </div>
         <div class="pane-content" id="specs-list"></div>
         <div id="missing-specs-section" style="display: none;">
@@ -139,14 +142,6 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
             <span id="missing-count" class="section-count"></span>
           </div>
           <div id="missing-specs-list"></div>
-        </div>
-        <div class="specs-footer">
-          <span id="selection-info">Selected: 0</span>
-          <span id="failed-info"></span>
-          <div class="footer-actions">
-            <button id="rerun-failed-btn" class="btn-secondary" tabindex="-1" style="display: none;">Re-run Failed</button>
-            <button id="run-selected-btn" class="btn-primary" tabindex="-1" disabled>Run Selected</button>
-          </div>
         </div>
       </section>
 
@@ -1396,15 +1391,46 @@ function getStyles(): string {
       color: var(--warning);
     }
 
-    /* Specs Footer */
-    .specs-footer {
+    /* Run Selected Button with Badge */
+    .btn-run-selected {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
-      background: var(--bg-secondary);
-      border-top: 1px solid var(--border-color);
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 4px;
       font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    
+    .btn-run-selected:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .btn-run-selected:not(:disabled):hover {
+      background: var(--accent-hover);
+    }
+    
+    .selection-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 9px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    
+    .btn-run-selected:not(:disabled) .selection-badge {
+      background: rgba(255, 255, 255, 0.35);
     }
 
     .footer-actions {
@@ -1955,10 +1981,8 @@ function getScript(): string {
         runningIndicator: document.getElementById('running-indicator'),
         baseRef: document.getElementById('base-ref'),
         workspacePath: document.getElementById('workspace-path'),
-        selectionInfo: document.getElementById('selection-info'),
-        failedInfo: document.getElementById('failed-info'),
+        selectionBadge: document.getElementById('selection-badge'),
         runSelectedBtn: document.getElementById('run-selected-btn'),
-        rerunFailedBtn: document.getElementById('rerun-failed-btn'),
         cancelBtn: document.getElementById('cancel-btn'),
         mainContent: document.getElementById('main-content'),
         specsProjectName: document.getElementById('specs-project-name'),
@@ -2777,7 +2801,7 @@ function getScript(): string {
         const selectedCount = state.selectedSpecs.size;
         const isJest = isCurrentProjectJest();
         
-        elements.selectionInfo.textContent = \`Selected: \${selectedCount}\`;
+        elements.selectionBadge.textContent = selectedCount;
         elements.runSelectedBtn.disabled = selectedCount === 0 || state.runningState.isRunning || !isJest;
         
         if (!isJest) {
@@ -2786,14 +2810,6 @@ function getScript(): string {
           elements.runSelectedBtn.title = '';
         }
 
-        const failedCount = state.specs.filter(s => s.testStatus === 'fail').length;
-        if (failedCount > 0 && isJest) {
-          elements.failedInfo.textContent = \`Failed: \${failedCount}\`;
-          elements.rerunFailedBtn.style.display = 'block';
-        } else {
-          elements.failedInfo.textContent = '';
-          elements.rerunFailedBtn.style.display = 'none';
-        }
       }
 
       function escapeHtml(text) {
@@ -2877,11 +2893,7 @@ function getScript(): string {
         }
       });
 
-      elements.rerunFailedBtn.addEventListener('click', () => {
-        if (!state.runningState.isRunning) {
-          send('rerunFailed');
-        }
-      });
+      // Re-run failed functionality removed - can be added back if needed
 
       elements.cancelBtn.addEventListener('click', () => {
         send('cancelRun');
