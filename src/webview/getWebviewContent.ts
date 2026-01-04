@@ -69,27 +69,13 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
         <span class="header-label">Path:</span>
         <span id="workspace-path" class="header-value header-path"></span>
       </div>
-      <!-- AI Assistant Panel (toggleable) -->
-      <div class="ai-panel" id="ai-panel">
-        <button class="ai-panel-toggle" id="ai-panel-toggle">
-          <span class="ai-panel-icon">✨</span>
-          <span class="ai-panel-title">AI Assistant</span>
-          <span class="ai-panel-chevron" id="ai-panel-chevron">▼</span>
-        </button>
-        <div class="ai-panel-content" id="ai-panel-content">
-          <div class="ai-selector" id="ai-selector">
-            <span class="ai-label">Select AI:</span>
-            <button class="ai-btn" data-ai="cursor" id="ai-btn-cursor">Cursor</button>
-            <button class="ai-btn" data-ai="copilot" id="ai-btn-copilot">Copilot</button>
-            <span class="ai-help" id="ai-help-icon">ⓘ</span>
-          </div>
-          <div class="ai-tooltip" id="ai-tooltip">
-            <strong>AI Target Selection</strong><br>
-            Select your preferred AI assistant. When selected, the spec context menu will show simplified AI commands.<br><br>
-            <strong>Cursor:</strong> Creates .cursor/rules/jest-testing.mdc<br>
-            <strong>Copilot:</strong> Creates .github/copilot-instructions.md
-          </div>
-        </div>
+      <!-- Line 3: AI selector (subtle) -->
+      <div class="header-line header-line-ai">
+        <span class="ai-icon">✨</span>
+        <span class="ai-label">AI:</span>
+        <button class="ai-toggle-btn" data-ai="cursor" id="ai-btn-cursor">Cursor</button>
+        <button class="ai-toggle-btn" data-ai="copilot" id="ai-btn-copilot">Copilot</button>
+        <span class="ai-help" id="ai-help-icon" title="Select AI target for context menu actions">ⓘ</span>
       </div>
     </header>
     <!-- Hidden elements for backward compatibility -->
@@ -517,115 +503,52 @@ function getStyles(): string {
       white-space: nowrap;
     }
 
-    /* AI Panel */
-    .ai-panel {
+    /* AI Selector (subtle inline) */
+    .header-line-ai {
+      padding-top: 4px;
+      border-top: 1px solid var(--border-color);
       margin-top: 4px;
-      border-radius: 6px;
-      background: linear-gradient(135deg, rgba(138, 43, 226, 0.15), rgba(75, 0, 130, 0.1));
-      border: 1px solid rgba(138, 43, 226, 0.3);
-      overflow: hidden;
     }
 
-    .ai-panel-toggle {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      width: 100%;
-      padding: 6px 10px;
-      background: transparent;
-      border: none;
-      color: var(--fg-primary);
-      font-size: 11px;
-      cursor: pointer;
-      text-align: left;
-    }
-
-    .ai-panel-toggle:hover {
-      background: rgba(138, 43, 226, 0.1);
-    }
-
-    .ai-panel-icon {
-      font-size: 14px;
-    }
-
-    .ai-panel-title {
-      font-weight: 600;
-      color: #b388ff;
-    }
-
-    .ai-panel-chevron {
-      margin-left: auto;
-      font-size: 10px;
-      color: var(--fg-muted);
-      transition: transform 0.2s;
-    }
-
-    .ai-panel.collapsed .ai-panel-chevron {
-      transform: rotate(-90deg);
-    }
-
-    .ai-panel-content {
-      padding: 8px 10px;
-      border-top: 1px solid rgba(138, 43, 226, 0.2);
-    }
-
-    .ai-panel.collapsed .ai-panel-content {
-      display: none;
-    }
-
-    .ai-selector {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    .ai-icon {
+      font-size: 12px;
+      margin-right: 2px;
     }
 
     .ai-label {
       color: var(--fg-muted);
       font-size: 11px;
+      margin-right: 6px;
     }
 
-    .ai-btn {
-      padding: 4px 12px;
-      border: 1px solid rgba(138, 43, 226, 0.4);
-      border-radius: 4px;
-      background: rgba(138, 43, 226, 0.1);
-      color: var(--fg-secondary);
-      font-size: 11px;
+    .ai-toggle-btn {
+      padding: 2px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 3px;
+      background: transparent;
+      color: var(--fg-muted);
+      font-size: 10px;
       cursor: pointer;
       transition: all 0.15s;
+      margin-right: 4px;
     }
 
-    .ai-btn:hover {
-      background: rgba(138, 43, 226, 0.2);
-      border-color: rgba(138, 43, 226, 0.6);
+    .ai-toggle-btn:hover {
+      background: var(--bg-tertiary);
+      color: var(--fg-secondary);
     }
 
-    .ai-btn.active {
-      background: rgba(138, 43, 226, 0.4);
-      border-color: #b388ff;
-      color: #fff;
-      font-weight: 600;
+    .ai-toggle-btn.active {
+      background: rgba(138, 43, 226, 0.3);
+      border-color: rgba(138, 43, 226, 0.5);
+      color: #b388ff;
     }
 
     .ai-help {
-      color: var(--fg-muted);
+      color: var(--fg-dimmed);
       cursor: help;
-      font-size: 12px;
-    }
-
-    .ai-tooltip {
-      display: none;
-      margin-top: 8px;
-      padding: 8px;
-      background: var(--bg-tertiary);
-      border-radius: 4px;
-      font-size: 10px;
-      color: var(--fg-muted);
-      line-height: 1.4;
-    }
-
-    .ai-tooltip.visible {
-      display: block;
+      font-size: 11px;
+      margin-left: 4px;
     }
 
     .header-logs {
@@ -3700,17 +3623,6 @@ function getScript(): string {
           hideContextMenu();
         });
       });
-      
-      // AI Panel toggle
-      const aiPanel = document.getElementById('ai-panel');
-      const aiPanelToggle = document.getElementById('ai-panel-toggle');
-      
-      aiPanelToggle.addEventListener('click', () => {
-        aiPanel.classList.toggle('collapsed');
-      });
-      
-      // Start collapsed by default
-      aiPanel.classList.add('collapsed');
       
       // AI selector in header
       const aiBtnCursor = document.getElementById('ai-btn-cursor');
