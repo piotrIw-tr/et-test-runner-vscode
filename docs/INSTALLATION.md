@@ -116,13 +116,16 @@ Then restart your IDE.
 
 ### Extension Not Visible in VS Code (but works in Cursor)
 
-If you previously uninstalled the extension from VS Code, the symlink may exist but VS Code won't load it because it's not registered. To fix this:
+The install script now automatically registers the extension in VS Code's `extensions.json`. If you still have issues:
+
+1. Re-run the install script: `./scripts/install.sh`
+2. Restart VS Code
+3. Open an Nx workspace (folder with `nx.json`)
+
+If that doesn't work, you can manually register:
 
 ```bash
-# Navigate to extension folder
 cd <path-to>/et-test-runner-vscode
-
-# Register the extension in VS Code
 node -e '
 const fs = require("fs");
 const path = require("path");

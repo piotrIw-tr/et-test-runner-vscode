@@ -85,6 +85,29 @@ else
         rm -rf "$EXTENSIONS_DIR/$LINK_NAME"
         ln -sf "$PROJECT_DIR" "$EXTENSIONS_DIR/$LINK_NAME"
         echo "✓ Symlinked to VS Code: $EXTENSIONS_DIR/$LINK_NAME"
+        
+        # Register in VS Code extensions.json (required for symlink installs)
+        EXTENSIONS_JSON="$EXTENSIONS_DIR/extensions.json"
+        if [ -f "$EXTENSIONS_JSON" ]; then
+            node -e "
+const fs = require('fs');
+const path = '$EXTENSIONS_DIR/$LINK_NAME';
+const extJson = '$EXTENSIONS_JSON';
+let extensions = JSON.parse(fs.readFileSync(extJson, 'utf8'));
+// Remove old entries
+extensions = extensions.filter(e => e.identifier.id !== 'etoro.et-test-runner');
+// Add new entry
+extensions.push({
+  identifier: { id: 'etoro.et-test-runner' },
+  version: '$VERSION',
+  location: { '\$mid': 1, path: path, scheme: 'file' },
+  relativeLocation: '$LINK_NAME',
+  metadata: { installedTimestamp: Date.now(), source: 'gallery' }
+});
+fs.writeFileSync(extJson, JSON.stringify(extensions));
+console.log('✓ Registered in VS Code extensions.json');
+" 2>/dev/null || echo "⚠️  Could not register in extensions.json (VS Code may still work)"
+        fi
     fi
     
     # Cursor
