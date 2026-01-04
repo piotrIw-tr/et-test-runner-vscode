@@ -2000,14 +2000,24 @@ function getScript(): string {
         switch (message.type) {
           case 'initialize':
             console.log('[ET WebView] Initialize with', message.payload?.projects?.length, 'projects');
-            updateStartupStatus('Loading ' + (message.payload?.projects?.length || 0) + ' projects...');
-            addStartupLog('Received ' + (message.payload?.projects?.length || 0) + ' projects');
-            handleInitialize(message.payload);
-            hideStartupLoader();
+            const projectCount = message.payload?.projects?.length || 0;
+            if (projectCount > 0) {
+              updateStartupStatus('Loading ' + projectCount + ' projects...');
+              addStartupLog('Received ' + projectCount + ' projects');
+              handleInitialize(message.payload);
+              hideStartupLoader();
+            } else {
+              // 0 projects - keep loader visible, wait for updateProjects
+              updateStartupStatus('Scanning workspace...');
+              addStartupLog('Waiting for workspace scan to complete');
+              handleInitialize(message.payload);
+              // Don't hide loader - updateProjects will hide it when data arrives
+            }
             break;
           case 'updateProjects':
             console.log('[ET WebView] Update projects:', message.payload?.projects?.length);
             hideGlobalLoader(); // Hide loader when projects are updated
+            hideStartupLoader(); // Also hide startup loader if still visible
             state.projects = message.payload.projects;
             
             // Update branch and path if provided
@@ -2029,6 +2039,7 @@ function getScript(): string {
             renderProjects();
             renderSpecs();
             updateHeader();
+            addStartupLog('Loaded ' + state.projects.length + ' projects');
             break;
           case 'showLoader':
             showGlobalLoader(message.payload?.text || 'Loading...');
