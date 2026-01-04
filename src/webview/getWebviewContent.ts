@@ -3581,18 +3581,38 @@ function getScript(): string {
       // Helper to resolve relative path to absolute using workspace root
       function resolveStructuredFilePath(relPath) {
         if (!relPath) return null;
+        
+        // Jest output often includes project name prefix like "project-name libs/path/to/file.ts"
+        // We need to extract just the actual file path
+        let cleanPath = relPath;
+        
+        // Check if path contains "libs/" or "apps/" and extract from there
+        const libsMatch = relPath.match(/(libs\\/[^\\s]+)/);
+        const appsMatch = relPath.match(/(apps\\/[^\\s]+)/);
+        if (libsMatch) {
+          cleanPath = libsMatch[1];
+        } else if (appsMatch) {
+          cleanPath = appsMatch[1];
+        }
+        
+        console.log('[ET WebView] resolveStructuredFilePath:', relPath, '->', cleanPath);
+        
         // If already absolute, return as-is
-        if (relPath.startsWith('/')) return relPath;
+        if (cleanPath.startsWith('/')) return cleanPath;
+        
         // Otherwise, prepend workspace root
         if (state.config && state.config.workspacePath) {
-          return state.config.workspacePath + '/' + relPath;
+          const fullPath = state.config.workspacePath + '/' + cleanPath;
+          console.log('[ET WebView] Full path:', fullPath);
+          return fullPath;
         }
-        return relPath;
+        return cleanPath;
       }
       
       // Use event delegation for structured output clicks (more robust than individual handlers)
       elements.outputStructured.addEventListener('click', (e) => {
         const target = e.target;
+        console.log('[ET WebView] Structured output click, target:', target.tagName, target.className);
         
         // Check if clicked on a location link
         const locationEl = target.closest('.structured-location');
@@ -3605,6 +3625,7 @@ function getScript(): string {
           console.log('[ET WebView] Opening location:', filePath, 'line:', line);
           if (filePath) {
             send('openFile', { filePath, line });
+            addLog('info', 'Opening file: ' + filePath + ':' + line);
           }
           return;
         }
@@ -3619,11 +3640,12 @@ function getScript(): string {
           console.log('[ET WebView] Opening file:', filePath, 'test:', testName);
           if (filePath) {
             send('openFile', { filePath, searchText: testName });
+            addLog('info', 'Opening file: ' + filePath + ' (searching for: ' + testName + ')');
           }
           return;
         }
         
-        // Check if clicked on a header
+        // Check if clicked on a header (the PASS/FAIL line with file path)
         const headerEl = target.closest('.structured-header.clickable');
         if (headerEl) {
           console.log('[ET WebView] Header clicked');
@@ -3634,6 +3656,20 @@ function getScript(): string {
           console.log('[ET WebView] Resolved path:', filePath);
           if (filePath) {
             send('openFile', { filePath });
+            addLog('info', 'Opening file: ' + filePath);
+          }
+          return;
+        }
+        
+        // Also check if clicked directly on .structured-result container
+        const resultEl = target.closest('.structured-result');
+        if (resultEl && !target.closest('.structured-tests')) {
+          console.log('[ET WebView] Result container clicked');
+          const relPath = resultEl.dataset.file;
+          const filePath = resolveStructuredFilePath(relPath);
+          if (filePath) {
+            send('openFile', { filePath });
+            addLog('info', 'Opening file: ' + filePath);
           }
           return;
         }
