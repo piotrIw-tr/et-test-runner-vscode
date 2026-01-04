@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import path from 'node:path';
 import { ProjectsTreeProvider } from './views/projectsTreeProvider.js';
 import { TestRunnerViewProvider } from './webview/TestRunnerViewProvider.js';
-import { refreshCommand, refreshWebviewCommand } from './commands/refresh.js';
+import { refreshAll } from './commands/refresh.js';
 import { runSelectedCommand, runProjectCommand, runAllCommand, runSpecsFromWebview, runProjectFromWebview, runAllChangedFromWebview, runProjectChangedFromWebview } from './commands/runTests.js';
 import { aiAssistCommand, aiAssistFromWebview } from './commands/aiAssist.js';
 import { createSpecCommand } from './commands/createSpec.js';
@@ -75,8 +75,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('et-test-runner.refresh', async () => {
       webviewProvider.showLoader('Refreshing workspace...');
       try {
-        await refreshCommand(treeProvider, outputChannel);
-        await refreshWebviewCommand(webviewProvider, outputChannel);
+        await refreshAll(treeProvider, webviewProvider, outputChannel);
       } finally {
         webviewProvider.hideLoader();
       }
@@ -84,8 +83,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Internal refresh without showing loader (used when caller manages loader)
     vscode.commands.registerCommand('et-test-runner.refreshInternal', async () => {
-      await refreshCommand(treeProvider, outputChannel);
-      await refreshWebviewCommand(webviewProvider, outputChannel);
+      await refreshAll(treeProvider, webviewProvider, outputChannel);
     }),
 
     vscode.commands.registerCommand('et-test-runner.runSelected', (item) =>
@@ -106,8 +104,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     vscode.commands.registerCommand('et-test-runner.clearCache', async () => {
       await workspaceCache.clear();
-      await refreshCommand(treeProvider, outputChannel);
-      await refreshWebviewCommand(webviewProvider, outputChannel);
+      await refreshAll(treeProvider, webviewProvider, outputChannel);
       vscode.window.showInformationMessage('Test cache cleared');
     }),
 
@@ -279,12 +276,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // Don't await - let it run in the background
   (async () => {
     try {
-      await refreshCommand(treeProvider, outputChannel);
-      outputChannel.appendLine(`Tree provider loaded in ${Date.now() - startTime}ms`);
-      
-      await refreshWebviewCommand(webviewProvider, outputChannel);
-      outputChannel.appendLine(`Webview refreshed in ${Date.now() - startTime}ms total`);
-      
+      await refreshAll(treeProvider, webviewProvider, outputChannel);
       webviewProvider.addLog('info', `Workspace loaded in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
     } catch (error) {
       outputChannel.appendLine(`Initial load error: ${error}`);
@@ -342,8 +334,7 @@ function setupFileWatchers(
       clearTimeout(refreshTimeout);
     }
     refreshTimeout = setTimeout(async () => {
-      await refreshCommand(provider, outputChannel);
-      await refreshWebviewCommand(webview, outputChannel);
+      await refreshAll(provider, webview, outputChannel);
     }, 2000); // Increased debounce to 2 seconds to prevent rapid refreshes
   };
 

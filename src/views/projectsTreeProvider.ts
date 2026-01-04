@@ -23,6 +23,18 @@ export class ProjectsTreeProvider implements vscode.TreeDataProvider<vscode.Tree
     this._onDidChangeTreeData.fire();
   }
 
+  /**
+   * Set projects directly (used by refreshAll to avoid duplicate loading)
+   */
+  setProjects(projects: ProjectWithSpecs[], workspaceRoot: string): void {
+    this.projects = projects;
+    this.workspaceRoot = workspaceRoot;
+    
+    const totalSpecs = this.projects.reduce((sum, p) => sum + p.specs.length, 0);
+    const failedSpecs = this.countFailedSpecs();
+    this.updateStatusBar(totalSpecs, failedSpecs);
+  }
+
   async loadData(): Promise<void> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {

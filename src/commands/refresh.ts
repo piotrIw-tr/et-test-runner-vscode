@@ -2,34 +2,20 @@ import * as vscode from 'vscode';
 import type { ProjectsTreeProvider } from '../views/projectsTreeProvider.js';
 import type { TestRunnerViewProvider } from '../webview/TestRunnerViewProvider.js';
 
-export async function refreshCommand(
+/**
+ * Combined refresh that loads workspace state once and updates both tree provider and webview.
+ * This is much faster than calling them separately (which would load state twice).
+ */
+export async function refreshAll(
   treeProvider: ProjectsTreeProvider,
-  outputChannel: vscode.OutputChannel
-): Promise<void> {
-  outputChannel.appendLine('Refreshing test view...');
-  
-  await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: 'Refreshing test view',
-      cancellable: false
-    },
-    async () => {
-      await treeProvider.loadData();
-      treeProvider.refresh();
-    }
-  );
-  
-  outputChannel.appendLine('Refresh complete');
-}
-
-export async function refreshWebviewCommand(
   webviewProvider: TestRunnerViewProvider,
   outputChannel: vscode.OutputChannel
 ): Promise<void> {
   const vsCodeWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!vsCodeWorkspace) return;
 
+  const startTime = Date.now();
+  outputChannel.appendLine('Refreshing workspace (combined)...');
   webviewProvider.addLog('action', 'Refreshing workspace...');
 
   try {
@@ -39,8 +25,9 @@ export async function refreshWebviewCommand(
     const config = vscode.workspace.getConfiguration('et-test-runner');
 
     // Find the actual nx workspace root (may be in a subdirectory)
+    outputChannel.appendLine('Finding workspace root...');
     const workspaceRoot = await findWorkspaceRoot(vsCodeWorkspace);
-    outputChannel.appendLine(`Nx workspace root: ${workspaceRoot}`);
+    outputChannel.appendLine(`Nx workspace root: ${workspaceRoot} (${Date.now() - startTime}ms)`);
     webviewProvider.addLog('debug', `Workspace root: ${workspaceRoot}`);
 
     // Get current git branch
@@ -54,33 +41,66 @@ export async function refreshWebviewCommand(
     }
 
     const baseRef = config.get<string>('baseRef', 'origin/master');
+    const skipFetch = config.get<boolean>('skipGitFetch', false);
+    const verbose = config.get<boolean>('verbose', false);
+    
+    outputChannel.appendLine(`Base ref: ${baseRef}, skipFetch: ${skipFetch}`);
     webviewProvider.addLog('debug', `Base ref: ${baseRef}`);
 
+    // Load workspace state ONCE
+    outputChannel.appendLine('Loading workspace state...');
+    const loadStart = Date.now();
     const result = await loadWorkspaceState({
       workspaceRoot,
       baseRef,
-      skipFetch: config.get<boolean>('skipGitFetch', false),
-      verbose: config.get<boolean>('verbose', false)
+      skipFetch,
+      verbose
     });
+    outputChannel.appendLine(`Workspace state loaded in ${Date.now() - loadStart}ms`);
 
+    // Update tree provider with the same data
+    treeProvider.setProjects(result.projects, workspaceRoot);
+    treeProvider.refresh();
+
+    // Update webview
     webviewProvider.updateProjects(result.projects, workspaceRoot, branch);
     
     const totalSpecs = result.projects.reduce((s, p) => s + p.specs.length, 0);
     const totalMissing = result.projects.reduce((s, p) => s + (p.missingSpecs?.length || 0), 0);
     
+    outputChannel.appendLine(`Loaded ${result.projects.length} projects, ${totalSpecs} specs in ${Date.now() - startTime}ms`);
     webviewProvider.addLog('info', `Loaded ${result.projects.length} projects, ${totalSpecs} specs`);
     if (totalMissing > 0) {
       webviewProvider.addLog('warn', `${totalMissing} missing spec files detected`);
     }
     
-    // Log project summary
-    for (const project of result.projects) {
-      if (project.specs.length > 0 || (project.missingSpecs?.length || 0) > 0) {
-        webviewProvider.addLog('debug', `  ${project.name}: ${project.specs.length} specs, ${project.missingSpecs?.length || 0} missing`);
+    // Log project summary (verbose mode)
+    if (verbose) {
+      for (const project of result.projects) {
+        if (project.specs.length > 0 || (project.missingSpecs?.length || 0) > 0) {
+          webviewProvider.addLog('debug', `  ${project.name}: ${project.specs.length} specs, ${project.missingSpecs?.length || 0} missing`);
+        }
       }
     }
   } catch (error) {
-    outputChannel.appendLine(`WebView refresh error: ${error}`);
+    outputChannel.appendLine(`Refresh error: ${error}`);
     webviewProvider.addLog('error', `Refresh failed: ${error}`);
   }
+}
+
+// Legacy functions for backwards compatibility - redirect to combined refresh
+export async function refreshCommand(
+  treeProvider: ProjectsTreeProvider,
+  outputChannel: vscode.OutputChannel
+): Promise<void> {
+  // This is now a no-op - use refreshAll instead
+  outputChannel.appendLine('Note: refreshCommand is deprecated, use refreshAll');
+}
+
+export async function refreshWebviewCommand(
+  webviewProvider: TestRunnerViewProvider,
+  outputChannel: vscode.OutputChannel
+): Promise<void> {
+  // This is now a no-op - use refreshAll instead
+  outputChannel.appendLine('Note: refreshWebviewCommand is deprecated, use refreshAll');
 }
