@@ -112,6 +112,39 @@ Then restart your IDE.
 - Ensure you restarted VS Code/Cursor after installation
 - Verify the symlink exists: `ls -la ~/.cursor/extensions/ | grep et-test-runner`
 - Check that `nx.json` exists in your workspace root
+- **Important:** Make sure you open an Nx workspace (folder with `nx.json`), not just any folder
+
+### Extension Not Visible in VS Code (but works in Cursor)
+
+If you previously uninstalled the extension from VS Code, the symlink may exist but VS Code won't load it because it's not registered. To fix this:
+
+```bash
+# Navigate to extension folder
+cd <path-to>/et-test-runner-vscode
+
+# Register the extension in VS Code
+node -e '
+const fs = require("fs");
+const path = require("path");
+const extJsonPath = path.join(process.env.HOME, ".vscode/extensions/extensions.json");
+const extensions = JSON.parse(fs.readFileSync(extJsonPath, "utf8"));
+if (!extensions.some(e => e.identifier.id === "etoro.et-test-runner")) {
+  extensions.push({
+    identifier: { id: "etoro.et-test-runner" },
+    version: "1.1.0",
+    location: { "$mid": 1, path: path.join(process.env.HOME, ".vscode/extensions/etoro.et-test-runner-1.1.0"), scheme: "file" },
+    relativeLocation: "etoro.et-test-runner-1.1.0",
+    metadata: { installedTimestamp: Date.now(), source: "gallery" }
+  });
+  fs.writeFileSync(extJsonPath, JSON.stringify(extensions));
+  console.log("Extension registered");
+} else {
+  console.log("Already registered");
+}
+'
+```
+
+Then restart VS Code.
 
 ### No Projects Showing
 
