@@ -23,7 +23,7 @@ Then restart VS Code/Cursor and open your Nx workspace (e.g., `etoro-assets`).
 - **Projects Pane** - Browse projects with test metrics, coverage (Stmts/Funcs/Branch), and runner tags (Jest/Karma). Subtle separators between items.
 - **Specs Pane** - Select, search, and run specs with inline failure preview. Paths displayed below filenames.
 - **Output Pane** - Live test streaming with clickable stack traces (40% height, resizable)
-- **Logs Pane** - Vertical toggle bar on the right side of output; click to expand/collapse, drag to resize width
+- **Logs Pane** - Side-by-side with Output pane; click header to collapse/expand both, drag separator to resize
 
 ### Header Information
 The header displays comprehensive status information similar to the console app:
@@ -56,7 +56,8 @@ The header displays comprehensive status information similar to the console app:
 - **Structured Output** - Default view with real-time updates and clickable test names for navigation; toggle to raw for detailed output
 - **Running Overlay** - Shows project name, spec count, and progress during test runs
 - **Duplicate Run Prevention** - Cannot start new tests while tests are running
-- **Global Loading Indicator** - Professional loading state with test tube animation
+- **Startup Loading Screen** - Shows progress during initialization with status updates
+- **Background Loading** - Initial workspace scan runs in background, doesn't block UI
 - **Resizable Panes** - Drag separators to adjust pane sizes
 - **Help Modal** - Press `?` to see all available shortcuts
 - **Jest Testing Rules** - Auto-creates `.cursor/rules/jest-testing.mdc` with AI patterns
@@ -136,7 +137,8 @@ In VS Code settings (`Cmd+,`):
 | `baseRef` | `origin/main` | Git ref for change detection |
 | `coverage` | `false` | Run with `--coverage` flag |
 | `autoRefresh` | `true` | Auto-refresh on file changes |
-| `skipGitFetch` | `false` | Skip `git fetch` on refresh |
+| `skipGitFetch` | `false` | Skip `git fetch` on refresh (speeds up startup) |
+| `verbose` | `false` | Show timing logs for debugging slow operations |
 
 ---
 
@@ -185,9 +187,10 @@ Note: Run is disabled for Karma projects (only Jest supported).
 - Drag the horizontal separator above the Output pane
 - Output pane defaults to 40% height
 
-### 6. Toggle Logs
-- Click on the vertical "LOGS" bar (right side of output pane) to expand/collapse
-- When expanded, drag the bar to resize logs width (150px - 600px)
+### 6. Toggle Output/Logs
+- Output and Logs are side-by-side in the bottom section
+- Click the shared header to collapse/expand the entire bottom section
+- Drag the vertical separator between Output and Logs to resize
 - Press backtick (`` ` ``) to toggle from keyboard
 
 ---
@@ -275,6 +278,12 @@ docs/
 ### Extension doesn't activate
 - Ensure `nx.json` exists in workspace root or a direct subdirectory
 - Check Output → "ET Test Runner" for errors
+- Initial load runs in background; WebView shows loading state with progress
+
+### Extension loads slowly
+- Set `"et-test-runner.skipGitFetch": true` to skip git fetch (can be slow on large repos)
+- Enable `"et-test-runner.verbose": true` to see timing logs in Output channel
+- Check if your network is slow (git fetch requires network access)
 
 ### No projects shown
 - Run `git status` to verify changes exist

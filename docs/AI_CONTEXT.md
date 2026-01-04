@@ -52,7 +52,7 @@ src/
 - Command registration
 - File watchers for `.spec.ts` files (with 2-second debounce)
 - `skipFileWatcherRefresh` flag to prevent duplicate refreshes
-- Initial workspace load
+- Initial workspace load (runs in background to not block activation)
 
 ### `src/webview/TestRunnerViewProvider.ts`
 - Handles messages from WebView
@@ -123,6 +123,8 @@ src/
 1. **Extension logs**: View → Output → "ET Test Runner"
 2. **WebView DevTools**: Help → Toggle Developer Tools (in Extension Host window)
 3. **Message tracing**: Add `console.log` in `_handleMessage` and WebView's message listener
+4. **Timing logs**: Enable `verbose: true` in settings to see timing for git operations and project indexing
+5. **Startup loader**: WebView shows loading state with status updates during initialization
 
 ## Common Bug Report Template
 
@@ -178,12 +180,20 @@ When requesting a feature:
 │   (list)     │              (list + search)             │
 │              │                                          │
 ├──────────────┴──────────────────────────────────────────┤
-│                                              ┌─────────┐│
-│              Output                          │  LOGS   ││
-│              (Structured/Raw tabs)           │(toggle) ││
-│                                              └─────────┘│
-└─────────────────────────────────────────────────────────┘
+│  OUTPUT / LOGS header (click to collapse)   [▲]        │
+├────────────────────────────────────┬────────────────────┤
+│                                    │                    │
+│              Output                │       Logs         │
+│         (Structured/Raw)           │     (side panel)   │
+│                                    │                    │
+└────────────────────────────────────┴────────────────────┘
 ```
+
+**Bottom Section:**
+- Output and Logs panes are side by side
+- Shared header bar spans both panes
+- Click header to collapse/expand entire bottom section
+- Drag vertical separator to resize logs width
 
 ### Keyboard Shortcuts
 
