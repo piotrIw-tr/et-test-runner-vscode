@@ -15,7 +15,22 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
     ${getStyles()}
   </style>
 </head>
-<body>
+<body style="margin:0;padding:0;background:#1e1e1e;font-family:system-ui,-apple-system,sans-serif;">
+  <!-- Initial Loading Message - shows immediately while CSS/JS loads -->
+  <div id="startup-loader" style="position:fixed;top:0;left:0;right:0;bottom:0;background:#1e1e1e;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;color:#ccc;">
+    <div style="font-size:36px;margin-bottom:16px;">🧪</div>
+    <div style="font-size:16px;font-weight:500;margin-bottom:8px;">ET Test Runner</div>
+    <div style="display:flex;align-items:center;gap:8px;color:#888;font-size:13px;">
+      <svg width="16" height="16" viewBox="0 0 16 16" style="animation:spin 1s linear infinite;">
+        <circle cx="8" cy="8" r="6" stroke="#444" stroke-width="2" fill="none"/>
+        <path d="M8 2 A6 6 0 0 1 14 8" stroke="#007acc" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>
+      <span id="startup-status">Initializing...</span>
+    </div>
+    <div id="startup-log" style="margin-top:16px;font-size:11px;color:#666;max-width:300px;text-align:center;"></div>
+  </div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  
   <!-- Global Loading Overlay (for test runs) -->
   <div id="global-loader" class="global-loader">
     <div class="global-loader-content">
@@ -1874,6 +1889,37 @@ function getScript(): string {
     (function() {
       const vscode = acquireVsCodeApi();
       
+      // Startup loader management
+      const startupLoader = document.getElementById('startup-loader');
+      const startupStatus = document.getElementById('startup-status');
+      const startupLog = document.getElementById('startup-log');
+      let startupStartTime = Date.now();
+      
+      function updateStartupStatus(text) {
+        if (startupStatus) startupStatus.textContent = text;
+      }
+      
+      function addStartupLog(text) {
+        if (startupLog) {
+          const elapsed = ((Date.now() - startupStartTime) / 1000).toFixed(1);
+          startupLog.textContent = '[' + elapsed + 's] ' + text;
+        }
+      }
+      
+      function hideStartupLoader() {
+        if (startupLoader) {
+          startupLoader.style.opacity = '0';
+          startupLoader.style.transition = 'opacity 0.3s ease';
+          setTimeout(() => {
+            startupLoader.style.display = 'none';
+          }, 300);
+        }
+      }
+      
+      // Update status immediately
+      updateStartupStatus('Waiting for extension...');
+      addStartupLog('WebView loaded, waiting for data');
+      
       // State
       let state = {
         projects: [],
@@ -1954,7 +2000,10 @@ function getScript(): string {
         switch (message.type) {
           case 'initialize':
             console.log('[ET WebView] Initialize with', message.payload?.projects?.length, 'projects');
+            updateStartupStatus('Loading ' + (message.payload?.projects?.length || 0) + ' projects...');
+            addStartupLog('Received ' + (message.payload?.projects?.length || 0) + ' projects');
             handleInitialize(message.payload);
+            hideStartupLoader();
             break;
           case 'updateProjects':
             console.log('[ET WebView] Update projects:', message.payload?.projects?.length);
@@ -3970,6 +4019,8 @@ function getScript(): string {
 
       // Notify extension that WebView is ready
       console.log('[ET WebView] Sending ready signal');
+      updateStartupStatus('Requesting projects...');
+      addStartupLog('Sent ready signal to extension');
       send('ready');
     })();
   `;
