@@ -133,7 +133,8 @@ export type ExtensionMessage =
   | { type: 'updateUIState'; payload: Partial<UIState> }
   | { type: 'showNotification'; payload: { message: string; type: 'info' | 'warning' | 'error' } }
   | { type: 'showLoader'; payload?: { text?: string } }
-  | { type: 'hideLoader' };
+  | { type: 'hideLoader' }
+  | { type: 'initProgress'; payload: { status?: string; log?: string; logType?: 'info' | 'success' | 'error' } };
 
 export interface InitializePayload {
   projects: ProjectState[];

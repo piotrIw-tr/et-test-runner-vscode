@@ -276,12 +276,51 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
+    // Send progress updates during initialization
+    this.postMessage({ 
+      type: 'initProgress', 
+      payload: { status: 'Loading configuration...', log: 'Reading VS Code configuration' } 
+    });
+
     const config = vscode.workspace.getConfiguration('et-test-runner');
     const workspaceFolders = vscode.workspace.workspaceFolders;
+    const workspacePath = this._workspaceRoot || workspaceFolders?.[0]?.uri.fsPath || '';
+
+    this.postMessage({ 
+      type: 'initProgress', 
+      payload: { log: 'Workspace: ' + workspacePath } 
+    });
+
+    this.postMessage({ 
+      type: 'initProgress', 
+      payload: { status: 'Analyzing projects...', log: 'Scanning for Jest and Karma projects' } 
+    });
 
     // Use async version to include coverage metrics
     const mappedProjects = await this.mapProjectsToStateAsync();
     console.log('[ET Provider] sendInitialState: Sending', mappedProjects.length, 'projects');
+
+    this.postMessage({ 
+      type: 'initProgress', 
+      payload: { 
+        status: 'Found ' + mappedProjects.length + ' projects', 
+        log: 'Found ' + mappedProjects.length + ' projects with changes',
+        logType: 'success'
+      } 
+    });
+
+    // Count specs
+    let totalSpecs = 0;
+    mappedProjects.forEach(p => totalSpecs += p.specs.length);
+    this.postMessage({ 
+      type: 'initProgress', 
+      payload: { log: 'Total specs with changes: ' + totalSpecs } 
+    });
+
+    this.postMessage({ 
+      type: 'initProgress', 
+      payload: { status: 'Preparing UI...', log: 'Sending data to webview' } 
+    });
 
     const uiState = this.uiState.getUIState();
     const payload: InitializePayload = {
@@ -297,7 +336,7 @@ export class TestRunnerViewProvider implements vscode.WebviewViewProvider {
       config: {
         baseRef: config.get('baseRef', 'origin/main'),
         branch: this._currentBranch,
-        workspacePath: this._workspaceRoot || workspaceFolders?.[0]?.uri.fsPath || ''
+        workspacePath
       }
     };
 

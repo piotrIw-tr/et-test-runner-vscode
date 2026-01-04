@@ -16,7 +16,7 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
   </style>
 </head>
 <body>
-  <!-- Global Loading Overlay -->
+  <!-- Global Loading Overlay (for test runs) -->
   <div id="global-loader" class="global-loader">
     <div class="global-loader-content">
       <div class="global-loader-spinner-container">
@@ -25,6 +25,17 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
       </div>
       <div class="global-loader-text" id="global-loader-text">Loading...</div>
       <div class="global-loader-subtext" id="global-loader-subtext"></div>
+    </div>
+  </div>
+  
+  <!-- Initialization Loading Screen (shown during extension startup) -->
+  <div id="init-loader" class="init-loader">
+    <div class="init-loader-content">
+      <div class="init-loader-logo">🧪</div>
+      <div class="init-loader-title">ET Test Runner</div>
+      <div class="init-loader-spinner"></div>
+      <div class="init-loader-status" id="init-status">Initializing...</div>
+      <div class="init-loader-logs" id="init-logs"></div>
     </div>
   </div>
   
@@ -1807,6 +1818,105 @@ function getStyles(): string {
       display: none;
     }
 
+    /* Initialization Loading Screen */
+    .init-loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      transition: opacity 0.3s ease;
+    }
+
+    .init-loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .init-loader-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      max-width: 400px;
+      padding: 32px;
+    }
+
+    .init-loader-logo {
+      font-size: 48px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    .init-loader-title {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--fg-primary);
+      letter-spacing: 0.5px;
+    }
+
+    .init-loader-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border-color);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .init-loader-status {
+      font-size: 14px;
+      color: var(--fg-secondary);
+      text-align: center;
+    }
+
+    .init-loader-logs {
+      width: 100%;
+      max-height: 150px;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 11px;
+      color: var(--fg-muted);
+      background: var(--bg-secondary);
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-top: 8px;
+    }
+
+    .init-loader-logs:empty {
+      display: none;
+    }
+
+    .init-log-entry {
+      padding: 2px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .init-log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .init-log-entry.success {
+      color: var(--pass);
+    }
+
+    .init-log-entry.error {
+      color: var(--fail);
+    }
+
+    .init-log-entry.info {
+      color: var(--fg-secondary);
+    }
+
     /* Spinner */
     @keyframes spin {
       to { transform: rotate(360deg); }
@@ -1909,6 +2019,42 @@ function getScript(): string {
         vscode.postMessage({ type, payload });
       }
 
+      // Init Loader Management
+      const initLoader = document.getElementById('init-loader');
+      const initStatus = document.getElementById('init-status');
+      const initLogs = document.getElementById('init-logs');
+      let initStartTime = Date.now();
+
+      function updateInitStatus(text) {
+        if (initStatus) {
+          initStatus.textContent = text;
+        }
+      }
+
+      function addInitLog(text, type = 'info') {
+        if (initLogs) {
+          const entry = document.createElement('div');
+          entry.className = 'init-log-entry ' + type;
+          const elapsed = ((Date.now() - initStartTime) / 1000).toFixed(1);
+          entry.textContent = '[' + elapsed + 's] ' + text;
+          initLogs.appendChild(entry);
+          initLogs.scrollTop = initLogs.scrollHeight;
+        }
+      }
+
+      function hideInitLoader() {
+        if (initLoader) {
+          initLoader.classList.add('hidden');
+          setTimeout(() => {
+            initLoader.style.display = 'none';
+          }, 300);
+        }
+      }
+
+      // Start showing init progress
+      addInitLog('Extension loaded, waiting for data...');
+      updateInitStatus('Connecting to extension...');
+
       // Handle messages from extension
       window.addEventListener('message', event => {
         const message = event.data;
@@ -1968,14 +2114,28 @@ function getScript(): string {
           case 'updateUIState':
             handleUIStateUpdate(message.payload);
             break;
+          case 'initProgress':
+            // Show loading progress during extension initialization
+            if (message.payload.status) {
+              updateInitStatus(message.payload.status);
+            }
+            if (message.payload.log) {
+              addInitLog(message.payload.log, message.payload.logType || 'info');
+            }
+            break;
         }
       });
 
       function handleInitialize(payload) {
         if (!payload) {
           console.error('[ET WebView] handleInitialize: No payload received');
+          addInitLog('Error: No payload received', 'error');
+          updateInitStatus('Initialization failed');
           return;
         }
+        
+        addInitLog('Received initialization data', 'success');
+        updateInitStatus('Processing projects...');
         
         state.projects = payload.projects || [];
         
@@ -1993,11 +2153,31 @@ function getScript(): string {
           elements.baseRef.textContent = payload.config.baseRef || 'origin/main';
           elements.branchInfo.textContent = payload.config.branch || '';
           elements.workspacePath.textContent = payload.config.workspacePath || '';
+          addInitLog('Workspace: ' + (payload.config.workspacePath || 'unknown'));
+          addInitLog('Branch: ' + (payload.config.branch || 'unknown'));
         }
 
+        const jestCount = state.projects.filter(p => p.runner === 'jest').length;
+        const karmaCount = state.projects.filter(p => p.runner !== 'jest').length;
+        addInitLog('Found ' + jestCount + ' Jest projects, ' + karmaCount + ' Karma projects', 'success');
+        
+        let totalSpecs = 0;
+        state.projects.forEach(p => totalSpecs += (p.specs?.length || 0));
+        addInitLog('Total specs with changes: ' + totalSpecs);
+
         console.log('[ET WebView] Initialized with', state.projects.length, 'projects');
+        
+        updateInitStatus('Rendering UI...');
         renderAll();
         updateHeader();
+        
+        addInitLog('Ready!', 'success');
+        updateInitStatus('Complete');
+        
+        // Hide init loader after a short delay
+        setTimeout(() => {
+          hideInitLoader();
+        }, 500);
       }
 
       function handleUIStateUpdate(uiState) {
