@@ -12,6 +12,7 @@ Before installing, ensure you have:
 - **An Nx workspace** - The extension only activates in folders containing `nx.json`
 
 > **Using nvm?** If you manage Node.js versions with nvm, make sure to activate Node 18+ before running the install script:
+>
 > ```bash
 > nvm use 18
 > ```
@@ -34,12 +35,14 @@ cd ~/projects/et-test-runner-vscode
 ```
 
 The script will:
+
 1. Verify Node.js 18+ is installed
 2. Install npm dependencies
 3. Build the TypeScript source
 4. Create symlinks in your VS Code and/or Cursor extensions folder
 
 You should see output like:
+
 ```
 ==========================================
   ET Test Runner - Build & Install
@@ -77,14 +80,14 @@ The **ET Test Runner** icon should now appear in the Activity Bar on the left.
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Cmd+E` / `Ctrl+E` | Refresh workspace |
-| `Cmd+R` / `Ctrl+R` | Run selected tests |
+| Shortcut                       | Action                  |
+| ------------------------------ | ----------------------- |
+| `Cmd+E` / `Ctrl+E`             | Refresh workspace       |
+| `Cmd+R` / `Ctrl+R`             | Run selected tests      |
 | `Cmd+Shift+R` / `Ctrl+Shift+R` | Run current file's spec |
-| `Cmd+X` / `Ctrl+X` | Cancel running test |
-| `` ` `` (backtick) | Toggle logs panel |
-| `c` | Toggle compact mode |
+| `Cmd+X` / `Ctrl+X`             | Cancel running test     |
+| `` ` `` (backtick)             | Toggle logs panel       |
+| `c`                            | Toggle compact mode     |
 
 ## Updating the Extension
 
@@ -101,15 +104,13 @@ Then restart your IDE. The symlink points to the same folder, so no reinstallati
 
 ## Uninstalling
 
-To remove the extension:
+To remove the extension from both IDEs:
 
 ```bash
-# For Cursor
-rm ~/.cursor/extensions/etoro.et-test-runner-*
-
-# For VS Code
-rm ~/.vscode/extensions/etoro.et-test-runner-*
+./scripts/uninstall.sh
 ```
+
+This removes the extension and unregisters it from `extensions.json` for both VS Code and Cursor.
 
 Then restart your IDE.
 
@@ -174,6 +175,7 @@ Then restart the IDE.
 ### Build Errors
 
 If `npm run build` fails:
+
 - Delete `node_modules` and run `npm install` again
 - Ensure TypeScript is installed: `npm list typescript`
 - Check for syntax errors in the Output panel
@@ -194,15 +196,15 @@ Optional settings can be configured in VS Code Settings (JSON):
 }
 ```
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `baseRef` | `origin/main` | Git reference for detecting changed files |
-| `coverage` | `false` | Run tests with coverage enabled |
-| `autoRefresh` | `true` | Automatically refresh when files change |
-| `skipGitFetch` | `false` | Skip git fetch when detecting changes |
-| `verbose` | `false` | Enable verbose logging |
-| `compactMode` | `false` | Use compact display mode for specs |
-| `logsVisible` | `true` | Show logs pane by default |
+| Setting        | Default       | Description                               |
+| -------------- | ------------- | ----------------------------------------- |
+| `baseRef`      | `origin/main` | Git reference for detecting changed files |
+| `coverage`     | `false`       | Run tests with coverage enabled           |
+| `autoRefresh`  | `true`        | Automatically refresh when files change   |
+| `skipGitFetch` | `false`       | Skip git fetch when detecting changes     |
+| `verbose`      | `false`       | Enable verbose logging                    |
+| `compactMode`  | `false`       | Use compact display mode for specs        |
+| `logsVisible`  | `true`        | Show logs pane by default                 |
 
 ## AI Assistance
 
@@ -211,8 +213,8 @@ The extension includes AI-powered test assistance for fixing, writing, and refac
 For detailed instructions on using AI features, see [AI_USAGE.md](AI_USAGE.md).
 
 **Quick start:**
+
 1. Right-click a spec file in the Specs pane
 2. Select "AI Assist"
 3. Choose an action (Fix / Write / Refactor)
 4. Paste the generated context into your AI chat
-

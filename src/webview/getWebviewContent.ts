@@ -2071,14 +2071,14 @@ function getScript(): string {
               <div style="font-size:48px;margin-bottom:16px;">📂</div>
               <h2 style="margin:0 0 8px;color:#ccc;font-weight:500;">Wrong Workspace</h2>
               <p style="margin:0 0 16px;font-size:13px;line-height:1.5;max-width:320px;">
-                This extension is designed for the <strong style="color:#aaa;">etoro-assets</strong> Nx monorepo.
+                This extension only works with the <strong style="color:#aaa;">etoro-assets</strong> workspace.
               </p>
               <div style="background:#2a2a2a;border-radius:6px;padding:12px 16px;font-size:11px;color:#666;margin-bottom:16px;">
                 <div style="margin-bottom:4px;">Current folder:</div>
                 <code style="color:#888;word-break:break-all;">\${workspacePath}</code>
               </div>
               <p style="margin:0;font-size:11px;color:#666;max-width:280px;">
-                Open the correct project folder that contains <code style="background:#333;padding:1px 4px;border-radius:2px;">nx.json</code>
+                Open the <strong>etoro-assets</strong> folder that contains <code style="background:#333;padding:1px 4px;border-radius:2px;">nx.json</code>
               </p>
             </div>
           \`;

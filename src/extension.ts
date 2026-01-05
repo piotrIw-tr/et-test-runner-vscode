@@ -76,8 +76,8 @@ export async function activate(context: vscode.ExtensionContext) {
       // Check if this is a valid Nx workspace first
       if (webviewProvider.isNotNxWorkspace()) {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        outputChannel.appendLine('Refresh blocked - not an Nx workspace');
-        vscode.window.showWarningMessage('ET Test Runner requires an Nx workspace (e.g., etoro-assets)');
+        outputChannel.appendLine('Refresh blocked - not the etoro-assets workspace');
+        vscode.window.showWarningMessage('ET Test Runner only works with etoro-assets workspace');
         webviewProvider.showNotNxWorkspace(workspaceFolder || 'No workspace');
         return;
       }
@@ -281,20 +281,20 @@ export async function activate(context: vscode.ExtensionContext) {
     setupFileWatchers(context, treeProvider, webviewProvider);
   }
 
-  // Check if this is a valid Nx workspace before loading
+  // Check if this is the etoro-asset workspace
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  const nxWorkspacePath = await checkNxWorkspace(workspaceFolder);
+  const validationResult = await validateEtoroAssetWorkspace(workspaceFolder);
   
-  if (!nxWorkspacePath) {
-    outputChannel.appendLine('Not an Nx workspace - extension will remain inactive');
+  if (!validationResult.valid) {
+    outputChannel.appendLine('Invalid workspace - extension will remain inactive');
     outputChannel.appendLine(`Opened folder: ${workspaceFolder || 'None'}`);
-    outputChannel.appendLine('Expected: An Nx monorepo with nx.json (e.g., etoro-assets)');
-    webviewProvider.addLog('warn', 'Not an Nx workspace');
+    outputChannel.appendLine(validationResult.reason || 'Expected: etoro-asset workspace');
+    webviewProvider.addLog('warn', validationResult.reason || 'Invalid workspace');
     webviewProvider.showNotNxWorkspace(workspaceFolder || 'No workspace');
     return;
   }
   
-  outputChannel.appendLine(`Nx workspace found: ${nxWorkspacePath}`);
+  outputChannel.appendLine(`Valid etoro-asset workspace found: ${validationResult.workspacePath}`);
   
   // Initial load - run in background to not block extension activation
   // This allows the webview to show immediately with a loading state
@@ -402,19 +402,31 @@ export function deactivate() {
 }
 
 /**
- * Check if the given path (or subdirectory) contains nx.json
- * Returns the path to the nx workspace if found, or null if not found
+ * Validate that the workspace is specifically 'etoro-assets'
+ * Returns validation result with workspace path if valid
  */
-async function checkNxWorkspace(workspacePath: string | undefined): Promise<string | null> {
-  if (!workspacePath) return null;
+async function validateEtoroAssetWorkspace(workspacePath: string | undefined): Promise<{ valid: boolean; workspacePath?: string; reason?: string }> {
+  if (!workspacePath) {
+    return { valid: false, reason: 'No workspace folder open' };
+  }
   
+  const workspaceName = path.basename(workspacePath);
+  
+  // Check if workspace name is exactly 'etoro-assets'
+  if (workspaceName !== 'etoro-assets') {
+    return { 
+      valid: false, 
+      reason: `This extension only works with 'etoro-assets' workspace. Current workspace: '${workspaceName}'` 
+    };
+  }
+  
+  // Verify it's also a valid Nx workspace
   try {
-    // Check root
     const rootNxJson = vscode.Uri.file(path.join(workspacePath, 'nx.json'));
     await vscode.workspace.fs.stat(rootNxJson);
-    return workspacePath;
+    return { valid: true, workspacePath };
   } catch {
-    // Check first-level subdirectories (e.g., etoro-assets inside a parent folder)
+    // Check first-level subdirectories
     try {
       const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(workspacePath));
       for (const [name, type] of entries) {
@@ -422,7 +434,7 @@ async function checkNxWorkspace(workspacePath: string | undefined): Promise<stri
           try {
             const subNxJson = vscode.Uri.file(path.join(workspacePath, name, 'nx.json'));
             await vscode.workspace.fs.stat(subNxJson);
-            return path.join(workspacePath, name);
+            return { valid: true, workspacePath: path.join(workspacePath, name) };
           } catch {
             // Continue checking other directories
           }
@@ -433,5 +445,8 @@ async function checkNxWorkspace(workspacePath: string | undefined): Promise<stri
     }
   }
   
-  return null;
+  return { 
+    valid: false, 
+    reason: `'etoro-assets' workspace found but nx.json is missing. Expected an Nx monorepo.` 
+  };
 }
