@@ -43,9 +43,16 @@ This creates a `.vsix` file that can be installed in VS Code.
 
 ## Install Locally
 
+The recommended way to install locally is using the install script, which works for both VS Code and Cursor:
+
 ```bash
-code --install-extension et-test-runner-1.0.0.vsix
+./scripts/install.sh
 ```
+
+This automatically:
+- Builds the extension
+- Installs to both VS Code and Cursor
+- Uses CLI installation when available, falls back to symlink + `extensions.json` registration otherwise
 
 ## Troubleshooting
 

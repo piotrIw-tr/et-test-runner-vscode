@@ -48,14 +48,22 @@ You should see output like:
 ✓ Node.js v18.x.x
 📦 Installing dependencies...
 🔨 Building extension...
-⚠️  VSIX packaging failed (Node version issue)
-📋 Alternative: Use symlink installation
-✓ Symlinked to Cursor: ~/.cursor/extensions/etoro.et-test-runner-1.1.0
+📦 Packaging extension...
+✓ Created et-test-runner-1.1.0.vsix
+
+🚀 Installing extension...
+✓ Installed to Cursor via CLI
+
+📋 Using symlink installation for VS Code...
+✓ Symlinked to VS Code: ~/.vscode/extensions/etoro.et-test-runner-1.1.0
+✓ Registered in VS Code extensions.json
 
 ==========================================
   ✅ Installation Complete!
 ==========================================
 ```
+
+> **Note:** The script automatically installs to both VS Code and Cursor. It uses CLI installation when available, and falls back to symlink installation otherwise.
 
 ### 3. Restart Your IDE
 
@@ -114,40 +122,42 @@ Then restart your IDE.
 - Check that `nx.json` exists in your workspace root
 - **Important:** Make sure you open an Nx workspace (folder with `nx.json`), not just any folder
 
-### Extension Not Visible in VS Code (but works in Cursor)
+### Extension Not Visible in One IDE
 
-The install script now automatically registers the extension in VS Code's `extensions.json`. If you still have issues:
+The install script automatically registers the extension in both VS Code's and Cursor's `extensions.json`. If you still have issues:
 
 1. Re-run the install script: `./scripts/install.sh`
-2. Restart VS Code
+2. Restart the IDE
 3. Open an Nx workspace (folder with `nx.json`)
 
-If that doesn't work, you can manually register:
+If that doesn't work, you can manually register. Replace `IDE_DIR` with `.vscode` or `.cursor`:
 
 ```bash
 cd <path-to>/et-test-runner-vscode
+IDE_DIR=".cursor"  # or ".vscode"
 node -e '
 const fs = require("fs");
 const path = require("path");
-const extJsonPath = path.join(process.env.HOME, ".vscode/extensions/extensions.json");
+const ideDir = process.env.IDE_DIR || ".cursor";
+const extJsonPath = path.join(process.env.HOME, ideDir, "extensions/extensions.json");
 const extensions = JSON.parse(fs.readFileSync(extJsonPath, "utf8"));
 if (!extensions.some(e => e.identifier.id === "etoro.et-test-runner")) {
   extensions.push({
     identifier: { id: "etoro.et-test-runner" },
     version: "1.1.0",
-    location: { "$mid": 1, path: path.join(process.env.HOME, ".vscode/extensions/etoro.et-test-runner-1.1.0"), scheme: "file" },
+    location: { "$mid": 1, path: path.join(process.env.HOME, ideDir, "extensions/etoro.et-test-runner-1.1.0"), scheme: "file" },
     relativeLocation: "etoro.et-test-runner-1.1.0",
     metadata: { installedTimestamp: Date.now(), source: "gallery" }
   });
   fs.writeFileSync(extJsonPath, JSON.stringify(extensions));
-  console.log("Extension registered");
+  console.log("Extension registered in " + ideDir);
 } else {
   console.log("Already registered");
 }
 '
 ```
 
-Then restart VS Code.
+Then restart the IDE.
 
 ### No Projects Showing
 

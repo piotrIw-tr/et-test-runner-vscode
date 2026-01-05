@@ -37,61 +37,41 @@ npm run build
 VERSION=$(node -p "require('./package.json').version")
 VSIX_FILE="et-test-runner-${VERSION}.vsix"
 
-# Package (skip if vsce has issues with Node version)
-echo ""
-echo "📦 Packaging extension..."
-
-# Try to package, fall back to symlink install if it fails
-if npx vsce package --allow-missing-repository -o "$VSIX_FILE" 2>/dev/null; then
-    echo "✓ Created $VSIX_FILE"
-    
-    # Install to VS Code
-    echo ""
-    echo "🚀 Installing extension..."
-    
-    if command -v cursor &> /dev/null; then
-        cursor --install-extension "$VSIX_FILE" --force
-        echo "✓ Installed to Cursor"
-    fi
-    
-    if command -v code &> /dev/null; then
-        code --install-extension "$VSIX_FILE" --force
-        echo "✓ Installed to VS Code"
-    fi
+# Set up extension directories based on OS
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    VSCODE_EXT_DIR="$HOME/.vscode/extensions"
+    CURSOR_EXT_DIR="$HOME/.cursor/extensions"
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    VSCODE_EXT_DIR="$HOME/.vscode/extensions"
+    CURSOR_EXT_DIR="$HOME/.cursor/extensions"
 else
-    echo "⚠️  VSIX packaging failed (Node version issue)"
-    echo ""
-    echo "📋 Alternative: Use symlink installation"
-    echo ""
-    
-    # Symlink install for development
-    EXTENSIONS_DIR=""
-    
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        EXTENSIONS_DIR="$HOME/.vscode/extensions"
-        CURSOR_DIR="$HOME/.cursor/extensions"
-    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        EXTENSIONS_DIR="$HOME/.vscode/extensions"
-        CURSOR_DIR="$HOME/.cursor/extensions"
-    else
-        EXTENSIONS_DIR="$USERPROFILE/.vscode/extensions"
-        CURSOR_DIR="$USERPROFILE/.cursor/extensions"
+    VSCODE_EXT_DIR="$USERPROFILE/.vscode/extensions"
+    CURSOR_EXT_DIR="$USERPROFILE/.cursor/extensions"
+fi
+
+LINK_NAME="etoro.et-test-runner-${VERSION}"
+
+# Function to install via symlink and register in extensions.json
+install_symlink() {
+    local EXT_DIR="$1"
+    local IDE_NAME="$2"
+
+    if [ ! -d "$EXT_DIR" ]; then
+        echo "⚠️  $IDE_NAME extensions directory not found: $EXT_DIR"
+        return
     fi
-    
-    LINK_NAME="etoro.et-test-runner-${VERSION}"
-    
-    # VS Code
-    if [ -d "$EXTENSIONS_DIR" ]; then
-        rm -rf "$EXTENSIONS_DIR/$LINK_NAME"
-        ln -sf "$PROJECT_DIR" "$EXTENSIONS_DIR/$LINK_NAME"
-        echo "✓ Symlinked to VS Code: $EXTENSIONS_DIR/$LINK_NAME"
-        
-        # Register in VS Code extensions.json (required for symlink installs)
-        EXTENSIONS_JSON="$EXTENSIONS_DIR/extensions.json"
-        if [ -f "$EXTENSIONS_JSON" ]; then
-            node -e "
+
+    # Create symlink
+    rm -rf "$EXT_DIR/$LINK_NAME"
+    ln -sf "$PROJECT_DIR" "$EXT_DIR/$LINK_NAME"
+    echo "✓ Symlinked to $IDE_NAME: $EXT_DIR/$LINK_NAME"
+
+    # Register in extensions.json (required for symlink installs)
+    local EXTENSIONS_JSON="$EXT_DIR/extensions.json"
+    if [ -f "$EXTENSIONS_JSON" ]; then
+        node -e "
 const fs = require('fs');
-const path = '$EXTENSIONS_DIR/$LINK_NAME';
+const extPath = '$EXT_DIR/$LINK_NAME';
 const extJson = '$EXTENSIONS_JSON';
 let extensions = JSON.parse(fs.readFileSync(extJson, 'utf8'));
 // Remove old entries
@@ -100,22 +80,56 @@ extensions = extensions.filter(e => e.identifier.id !== 'etoro.et-test-runner');
 extensions.push({
   identifier: { id: 'etoro.et-test-runner' },
   version: '$VERSION',
-  location: { '\$mid': 1, path: path, scheme: 'file' },
+  location: { '\$mid': 1, path: extPath, scheme: 'file' },
   relativeLocation: '$LINK_NAME',
   metadata: { installedTimestamp: Date.now(), source: 'gallery' }
 });
 fs.writeFileSync(extJson, JSON.stringify(extensions));
-console.log('✓ Registered in VS Code extensions.json');
-" 2>/dev/null || echo "⚠️  Could not register in extensions.json (VS Code may still work)"
-        fi
+console.log('✓ Registered in $IDE_NAME extensions.json');
+" 2>/dev/null || echo "⚠️  Could not register in extensions.json ($IDE_NAME may still work)"
     fi
-    
-    # Cursor
-    if [ -d "$CURSOR_DIR" ]; then
-        rm -rf "$CURSOR_DIR/$LINK_NAME"
-        ln -sf "$PROJECT_DIR" "$CURSOR_DIR/$LINK_NAME"
-        echo "✓ Symlinked to Cursor: $CURSOR_DIR/$LINK_NAME"
+}
+
+# Package (skip if vsce has issues with Node version)
+echo ""
+echo "📦 Packaging extension..."
+
+VSCODE_INSTALLED=false
+CURSOR_INSTALLED=false
+
+# Try to package VSIX
+if npx vsce package --allow-missing-repository -o "$VSIX_FILE" 2>/dev/null; then
+    echo "✓ Created $VSIX_FILE"
+
+    echo ""
+    echo "🚀 Installing extension..."
+
+    # Try CLI install for Cursor
+    if command -v cursor &> /dev/null; then
+        cursor --install-extension "$VSIX_FILE" --force
+        echo "✓ Installed to Cursor via CLI"
+        CURSOR_INSTALLED=true
     fi
+
+    # Try CLI install for VS Code
+    if command -v code &> /dev/null; then
+        code --install-extension "$VSIX_FILE" --force
+        echo "✓ Installed to VS Code via CLI"
+        VSCODE_INSTALLED=true
+    fi
+fi
+
+# Fallback to symlink for IDEs where CLI wasn't available
+if [ "$VSCODE_INSTALLED" = false ]; then
+    echo ""
+    echo "📋 Using symlink installation for VS Code..."
+    install_symlink "$VSCODE_EXT_DIR" "VS Code"
+fi
+
+if [ "$CURSOR_INSTALLED" = false ]; then
+    echo ""
+    echo "📋 Using symlink installation for Cursor..."
+    install_symlink "$CURSOR_EXT_DIR" "Cursor"
 fi
 
 echo ""
